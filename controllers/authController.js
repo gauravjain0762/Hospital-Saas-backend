@@ -346,6 +346,9 @@ export const registerStep5 = async (req, res) => {
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = email?.trim().toLowerCase();
+    const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+    const adminPassword = process.env.ADMIN_PASSWORD;
 
     // validation
     if (!email || !password) {
@@ -362,14 +365,26 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    if (!user.password) {
-      return res.status(400).json({
-        message: "Password login is not configured for this account",
-      });
-    }
+    const isEnvAdminLogin =
+      user.role === "admin" &&
+      adminEmail &&
+      adminPassword &&
+      normalizedEmail === adminEmail &&
+      password === adminPassword;
 
-    // check password
-    const isMatch = await bcrypt.compare(password, user.password);
+    let isMatch = false;
+    if (isEnvAdminLogin) {
+      isMatch = true;
+    } else {
+      if (!user.password) {
+        return res.status(400).json({
+          message: "Password login is not configured for this account",
+        });
+      }
+
+      // check password
+      isMatch = await bcrypt.compare(password, user.password);
+    }
 
     if (!isMatch) {
       return res.status(400).json({
