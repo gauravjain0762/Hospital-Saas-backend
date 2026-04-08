@@ -16,7 +16,8 @@ export const sendOtp = async (req, res) => {
       return res.status(400).json({ message: "Phone is required" });
     }
 
-    const otp = generateOtp();
+    const fixedOtp = process.env.FIXED_OTP?.trim();
+    const otp = fixedOtp || generateOtp();
 
     let user = await User.findOne({ phone });
 
@@ -52,7 +53,7 @@ export const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: "User not found" });
     }
 
-    if (user.otp !== otp || user.otpExpiry < new Date()) {
+    if (String(user.otp) !== String(otp) || user.otpExpiry < new Date()) {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
