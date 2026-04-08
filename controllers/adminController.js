@@ -18,7 +18,10 @@ export const getPendingUsers = async (req, res) => {
 
 export const getAllUsers = async (req, res) => {
     try {
-        const users = await User.find({ status: "approved" }).select("-password");
+        const users = await User.find({
+            status: "approved",
+            role: { $ne: "admin" },
+        }).select("-password");
 
         res.json({
             success: true,
