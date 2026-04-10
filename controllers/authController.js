@@ -8,6 +8,8 @@ import Service from "../models/Service.js";
 
 
 // ✅ SEND OTP
+
+// ✅ SEND OTP
 export const sendOtp = async (req, res) => {
   try {
     const { phone } = req.body;
@@ -19,15 +21,16 @@ export const sendOtp = async (req, res) => {
     const fixedOtp = process.env.FIXED_OTP?.trim();
     const otp = fixedOtp || generateOtp();
 
-    let user = await User.findOne({ phone });
-
-    if (!user) {
-      user = await User.create({ phone });
-    }
-
-    user.otp = otp;
-    user.otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 min
-    await user.save();
+    await User.findOneAndUpdate(
+      { phone },
+      {
+        $set: {
+          otp,
+          otpExpiry: new Date(Date.now() + 5 * 60 * 1000),
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
 
     console.log("OTP:", otp); // 🔥 for testing
 
