@@ -19,6 +19,7 @@ const router = express.Router();
 router.post("/doctor-send-otp", sendOtp);
 router.post("/doctor-verify-otp", verifyOtp);
 router.post("/doctor-login", loginUser);
+router.post("/admin-login", loginUser);
 
 router.post("/doctor-register-step1", registerStep1);
 router.post("/doctor-register-step2", protect, upload.array("clinicPhotos", 7), registerStep2);
