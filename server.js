@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import cors from "cors";
 import adminRoutes from "./routes/adminRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import patientRoutes from "./routes/patient.routes.js";
 
 dotenv.config();
 
@@ -21,6 +22,8 @@ app.use(express.json());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
+
+app.use("/api/patient", patientRoutes);
 
 app.use((err, req, res, next) => {
   console.error("GLOBAL ERROR:", err);
