@@ -50,6 +50,10 @@ export const verifyOtp = async (req, res) => {
   try {
     const { phone, otp } = req.body;
 
+    if (otp === undefined || otp === null || String(otp).trim() === "") {
+      return res.status(400).json({ message: "Please enter otp" });
+    }
+
     const user = await User.findOne({ phone });
 
     if (!user) {
