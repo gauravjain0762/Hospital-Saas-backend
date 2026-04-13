@@ -7,7 +7,7 @@ const storage = new CloudinaryStorage({
   params: {
     folder: "hospital-saas",
     resource_type: "auto",
-     allowed_formats: ["jpg", "jpeg", "png", "webp", "pdf"],
+    allowed_formats: ["jpg", "jpeg", "png", "webp", "heic", "heif", "pdf"],
   },
 });
 
