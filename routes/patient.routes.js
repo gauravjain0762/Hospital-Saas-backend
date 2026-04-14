@@ -1,12 +1,12 @@
-const express = require('express');
+import express from "express";
 const router = express.Router();
 
-const { sendOtp, verifyOtp } = require('../controllers/patient.controller');
+import { sendOtp, verifyOtp } from "../controllers/patient.controller.js";
 
 // send otp
-router.post('/send-otp', sendOtp);
+router.post("/send-otp", sendOtp);
 
 // verify otp
-router.post('/verify-otp', verifyOtp);
+router.post("/verify-otp", verifyOtp);
 
-module.exports = router;
+export default router; // ✅ IMPORTANT
