@@ -5,6 +5,7 @@ import cors from "cors";
 import adminRoutes from "./routes/adminRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import patientRoutes from "./routes/patient.routes.js";
+import User from "./models/User.js";
 
 dotenv.config();
 
@@ -39,6 +40,8 @@ const startServer = async () => {
       serverSelectionTimeoutMS: 10000,
       family: 4,
     });
+
+    await User.syncIndexes();
 
     console.log("MongoDB Connected");
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -3,9 +3,18 @@ import mongoose from "mongoose";
 const userSchema = new mongoose.Schema(
   {
     name: String,
-    email: { type: String, unique: true, sparse: true },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: undefined,
+    },
     password: String,
     phone: { type: String, unique: true },
+    profilePhoto: {
+      type: String,
+      default: "",
+    },
 
     otp: String,
     otpExpiry: Date,
@@ -35,6 +44,7 @@ const userSchema = new mongoose.Schema(
       googleBusinessLink: String,
       clinicName: String,
       address: String,
+      about: String,
       city: String,
       pincode: String,
       consultationFee: Number,
@@ -80,6 +90,16 @@ const userSchema = new mongoose.Schema(
     },
   },
   { timestamps: true }
+);
+
+userSchema.index(
+  { email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      email: { $type: "string" },
+    },
+  }
 );
 
 export default mongoose.model("User", userSchema);

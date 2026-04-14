@@ -7,7 +7,6 @@ import streamifier from "streamifier";
 import Service from "../models/Service.js";
 
 
-// ✅ SEND OTP
 
 // ✅ SEND OTP
 export const sendOtp = async (req, res) => {
@@ -124,6 +123,7 @@ export const registerStep2 = async (req, res) => {
       newClinic,
       googleBusinessLink,
       clinicName,
+      about,
       address,
       city,
       pincode,
@@ -148,6 +148,7 @@ export const registerStep2 = async (req, res) => {
       newClinic: newClinic === true || newClinic === "true",
       googleBusinessLink,
       clinicName,
+      about,
       address,
       city,
       pincode,

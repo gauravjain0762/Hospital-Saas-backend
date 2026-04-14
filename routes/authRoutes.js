@@ -21,7 +21,7 @@ router.post("/doctor-verify-otp", verifyOtp);
 router.post("/doctor-login", loginUser);
 router.post("/admin-login", loginUser);
 
-router.post("/doctor-register-step1", registerStep1);
+router.post("/doctor-register-step1", upload.single("profilePhoto"), registerStep1);
 router.post("/doctor-register-step2", protect, upload.array("clinicPhotos", 7), registerStep2);
 router.post("/doctor-register-step3", protect, registerStep3);
 router.post("/doctor-register-step4", protect, registerStep4);
