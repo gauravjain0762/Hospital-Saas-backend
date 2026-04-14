@@ -4,10 +4,21 @@ import cloudinary from "./cloudinary.js";
 
 const storage = new CloudinaryStorage({
   cloudinary,
-  params: {
-    folder: "hospital-saas",
-    resource_type: "auto",
-    allowed_formats: ["jpg", "jpeg", "png", "webp", "heic", "heif", "pdf"],
+  params: async (req, file) => {
+    const isPDF = file.mimetype === "application/pdf";
+
+    return {
+      folder: "hospital-saas",
+
+      // ✅ Correct resource type handling
+      resource_type: isPDF ? "raw" : "image",
+
+      // ✅ VERY IMPORTANT (fixes blocked delivery)
+      type: "upload",
+
+      // ✅ Allowed formats
+      format: isPDF ? "pdf" : undefined,
+    };
   },
 });
 
