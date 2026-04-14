@@ -4,6 +4,7 @@ import {
     approveUser,
     rejectUser,
     getAllUsers,
+    toggleDoctorActiveStatus,
 } from "../controllers/adminController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -28,6 +29,8 @@ router.post("/approve/:id", approveUser);
 
 //reject user
 router.post("/reject/:id", rejectUser);
+
+router.patch("/toggle-status/:id", toggleDoctorActiveStatus);
 
 
 

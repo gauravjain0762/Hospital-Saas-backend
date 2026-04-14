@@ -24,6 +24,12 @@ const userSchema = new mongoose.Schema(
       default: "pending",
     },
 
+    activeStatus: {
+  type: String,
+  enum: ["active", "inactive"],
+  default: "inactive",
+},
+
     clinic: {
       newClinic: { type: Boolean, default: false },
       googleBusinessLink: String,

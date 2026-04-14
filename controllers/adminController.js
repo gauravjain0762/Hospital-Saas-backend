@@ -78,3 +78,36 @@ export const rejectUser = async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 };
+
+
+export const toggleDoctorActiveStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { activeStatus } = req.body;
+
+    if (!["active", "inactive"].includes(activeStatus)) {
+      return res.status(400).json({ success: false, message: "Invalid status. Use 'active' or 'inactive'" });
+    }
+
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Doctor not found" });
+    }
+
+    if (user.status !== "approved") {
+      return res.status(400).json({ success: false, message: "Only approved doctors can be toggled" });
+    }
+
+    user.activeStatus = activeStatus;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: `Doctor marked as ${activeStatus}`,
+      activeStatus: user.activeStatus,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
