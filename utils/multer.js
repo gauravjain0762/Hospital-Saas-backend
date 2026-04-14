@@ -16,6 +16,8 @@ const storage = new CloudinaryStorage({
       // ✅ VERY IMPORTANT (fixes blocked delivery)
       type: "upload",
 
+      access_mode: "public",
+
       // ✅ Allowed formats
       format: isPDF ? "pdf" : undefined,
     };
