@@ -39,6 +39,16 @@ const userSchema = new mongoose.Schema(
   default: "inactive",
 },
 
+rejections: {
+  type: [
+    {
+      step: Number,
+      reason: String,
+    },
+  ],
+  default: [],
+},
+
     clinic: {
       newClinic: { type: Boolean, default: false },
       googleBusinessLink: String,

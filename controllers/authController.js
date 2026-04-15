@@ -108,6 +108,8 @@ export const registerStep1 = async (req, res) => {
     user.experience = experience;
     user.registrationStep = 1;
 
+    user.rejections = user.rejections.filter(r => r.step !== 1);
+
     await user.save();
 
     res.json({
@@ -160,6 +162,8 @@ export const registerStep2 = async (req, res) => {
       photos: photoUrls,
     };
 
+    user.rejections = user.rejections.filter(r => r.step !== 2);
+
     user.registrationStep = 2;
 
     await user.save();
@@ -201,6 +205,8 @@ export const registerStep3 = async (req, res) => {
     user.services = services;
     user.availability = availability;
     user.registrationStep = 3;
+
+    user.rejections = user.rejections.filter(r => r.step !== 3);
 
     await user.save();
 
@@ -287,6 +293,8 @@ export const registerStep4 = async (req, res) => {
       accountType,
     };
 
+    user.rejections = user.rejections.filter(r => r.step !== 4);
+
     user.registrationStep = 4;
 
     await user.save();
@@ -336,6 +344,8 @@ export const registerStep5 = async (req, res) => {
       idProof: idProofUrl,
       clinicCertificate: clinicCertificateUrl,
     };
+
+    user.rejections = user.rejections.filter(r => r.step !== 5);
 
     user.registrationStep = 5;
     user.status = "pending";

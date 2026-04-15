@@ -56,27 +56,52 @@ export const approveUser = async (req, res) => {
 };
 
 export const rejectUser = async (req, res) => {
-    try {
-        const { reason } = req.body;
-        const user = await User.findById(req.params.id);
-        
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
+  try {
+    const { rejections } = req.body; 
+    // [{ step: 2, reason: "..." }, { step: 4, reason: "..." }]
 
-        //send rejection email
-        await sendRejectionEmail(user.email, reason);
+    const user = await User.findById(req.params.id);
 
-        //delete user
-        await User.findByIdAndDelete(req.params.id);
-
-        res.json({
-            success: true,
-            message: "User rejected & email sent",
-        });
-    } catch (err) {
-        res.status(500).json({ message: err.message });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
+
+    if (!rejections || rejections.length === 0) {
+      return res.status(400).json({
+        message: "Rejections data required",
+      });
+    }
+
+    // ✅ Save rejections
+    user.rejections = rejections;
+    user.status = "rejected";
+
+    // ✅ Find earliest step
+    const steps = rejections.map(r => r.step);
+    const minStep = Math.min(...steps);
+
+    // 🔥 Move user back
+    user.registrationStep = minStep - 1;
+
+    await user.save();
+
+    // OPTIONAL: send email with combined reasons
+    const combinedReason = rejections
+      .map(r => `Step ${r.step}: ${r.reason}`)
+      .join("\n");
+
+    await sendRejectionEmail(user.email, combinedReason);
+
+    res.json({
+      success: true,
+      message: "User rejected with step corrections",
+      rejections: user.rejections,
+      redirectToStep: minStep,
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
 
 
