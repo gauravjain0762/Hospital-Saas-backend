@@ -332,11 +332,11 @@ export const registerStep5 = async (req, res) => {
       req.files.clinicCertificate?.[0]?.path || "";
 
     // ❗ Required validation
-    if (!medicalLicenseUrl || !idProofUrl) {
-      return res.status(400).json({
-        message: "Medical License and ID Proof are required",
-      });
-    }
+    // if (!medicalLicenseUrl || !idProofUrl) {
+    //   return res.status(400).json({
+    //     message: "Medical License and ID Proof are required",
+    //   });
+    // }
 
     // ✅ Save
     user.documents = {
