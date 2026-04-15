@@ -11,6 +11,7 @@ import {
   registerStep4,
   registerStep5,
   loginUser,
+  getMe,
 } from "../controllers/authController.js";
 
 const router = express.Router();
@@ -20,6 +21,7 @@ router.post("/doctor-send-otp", sendOtp);
 router.post("/doctor-verify-otp", verifyOtp);
 router.post("/doctor-login", loginUser);
 router.post("/admin-login", loginUser);
+router.get("/doctor-me", protect, getMe);
 
 router.post("/doctor-register-step1", upload.single("profilePhoto"), registerStep1);
 router.post("/doctor-register-step2", protect, upload.array("clinicPhotos", 7), registerStep2);
