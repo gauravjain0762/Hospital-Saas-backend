@@ -41,6 +41,7 @@ export const approveUser = async (req, res) => {
     }
 
     user.status = "approved";
+    user.activeStatus = "active";
     await user.save();
 
     //send approval email
@@ -48,7 +49,7 @@ export const approveUser = async (req, res) => {
 
     res.json({
         success: true,
-        message: "User approved & email sent",
+        message: "User approved, activated & email sent",
     });
     } catch (err) {
         res.status(500).json({ message: err.message });
