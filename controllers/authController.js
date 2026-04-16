@@ -100,6 +100,7 @@ export const verifyOtp = async (req, res) => {
       user: {
         id: user._id,
         registrationStep: user.registrationStep,
+        rejectedSteps: user.rejections?.map(r => r.step) || [],
       },
     });
   } catch (err) {
