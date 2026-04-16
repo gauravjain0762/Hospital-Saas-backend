@@ -109,7 +109,7 @@ export const verifyOtp = async (req, res) => {
 };
 
 
-
+// step1 
 export const registerStep1 = async (req, res) => {
   try {
     const { name, email, phone, experience } = req.body;
@@ -122,7 +122,20 @@ export const registerStep1 = async (req, res) => {
       });
     }
 
-    // ✅ Handle profile photo upload
+     //  Check duplicate email (other users only)
+    const existingEmail = await User.findOne({
+      email,
+      _id: { $ne: user._id }
+    });
+
+    if (existingEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already registered"
+      });
+    }
+
+    //  Handle profile photo upload
     let profilePhotoUrl = user.profilePhoto || ""; // keep existing if not uploaded
     if (req.file) {
       // multer single()
@@ -148,7 +161,16 @@ export const registerStep1 = async (req, res) => {
       user,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+     if (err.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already registered"
+      });
+    }
+       res.status(500).json({
+      success: false,
+      message: err.message
+    });
   }
 };
 
