@@ -347,30 +347,19 @@ export const registerStep5 = async (req, res) => {
 
     const user = await User.findById(req.user._id);
 
-    if (!user || user.registrationStep < 4) {
+    // ✅ Allow if step 4 done OR if rejected specifically at step 5
+    const isRejectedAtStep5 = user.rejections?.some(r => r.step === 5);
+
+    if (!user || (user.registrationStep < 4 && !isRejectedAtStep5)) {
       return res.status(400).json({
         message: "Complete step 4 first",
       });
     }
 
-    // ✅ Directly use uploaded URLs
-    const medicalLicenseUrl =
-      req.files.medicalLicense?.[0]?.path || "";
+    const medicalLicenseUrl = req.files.medicalLicense?.[0]?.path || "";
+    const idProofUrl = req.files.idProof?.[0]?.path || "";
+    const clinicCertificateUrl = req.files.clinicCertificate?.[0]?.path || "";
 
-    const idProofUrl =
-      req.files.idProof?.[0]?.path || "";
-
-    const clinicCertificateUrl =
-      req.files.clinicCertificate?.[0]?.path || "";
-
-    // ❗ Required validation
-    // if (!medicalLicenseUrl || !idProofUrl) {
-    //   return res.status(400).json({
-    //     message: "Medical License and ID Proof are required",
-    //   });
-    // }
-
-    //  Save
     user.documents = {
       medicalLicense: medicalLicenseUrl,
       idProof: idProofUrl,
@@ -378,7 +367,6 @@ export const registerStep5 = async (req, res) => {
     };
 
     user.rejections = user.rejections.filter(r => r.step !== 5);
-
     user.registrationStep = 5;
     user.status = "pending";
 
@@ -390,7 +378,6 @@ export const registerStep5 = async (req, res) => {
     });
   } catch (err) {
     console.error("Error in registerStep5:", err);
-
     res.status(500).json({
       success: false,
       message: err.message,
