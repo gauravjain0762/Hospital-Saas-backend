@@ -17,6 +17,18 @@ export const sendOtp = async (req, res) => {
       return res.status(400).json({ message: "Phone is required" });
     }
 
+    // Duplicate phone check
+const existingUser = await User.findOne({ 
+  phone, 
+  otpVerified: true  // only block if they've actually completed registration
+});
+
+if (existingUser) {
+  return res.status(400).json({ 
+    message: "This mobile number is already registered. Please use a different number." 
+  });
+}
+
     const fixedOtp = process.env.FIXED_OTP?.trim();
     const otp = fixedOtp || generateOtp();
 
@@ -284,6 +296,18 @@ export const registerStep4 = async (req, res) => {
       });
     }
 
+    // Account number duplicate check
+const existingAccount = await User.findOne({
+  "bankDetails.accountNumber": accountNumber,
+  _id: { $ne: req.user._id }, // exclude current user
+});
+
+if (existingAccount) {
+  return res.status(400).json({
+    message: "This account number is already registered. Please enter a valid account number.",
+  });
+}
+
     //  Save data
     user.bankDetails = {
       gstNumber,
@@ -338,7 +362,7 @@ export const registerStep5 = async (req, res) => {
     //   });
     // }
 
-    // ✅ Save
+    //  Save
     user.documents = {
       medicalLicense: medicalLicenseUrl,
       idProof: idProofUrl,
