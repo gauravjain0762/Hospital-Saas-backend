@@ -58,8 +58,9 @@ export const approveUser = async (req, res) => {
 
 export const rejectUser = async (req, res) => {
   try {
-    const { rejections } = req.body; 
-    // [{ step: 2, reason: "..." }, { step: 4, reason: "..." }]
+    const { rejections } = req.body;
+
+    console.log("Received rejections:", rejections); // 🔥 debug log
 
     const user = await User.findById(req.params.id);
 
@@ -73,20 +74,27 @@ export const rejectUser = async (req, res) => {
       });
     }
 
+    // ✅ Validate steps
+    const validSteps = [1, 2, 3, 4, 5];
+    const invalidSteps = rejections.filter(r => !validSteps.includes(r.step));
+    if (invalidSteps.length > 0) {
+      return res.status(400).json({
+        message: `Invalid steps: ${invalidSteps.map(r => r.step).join(", ")}`,
+      });
+    }
+
     // ✅ Save rejections
     user.rejections = rejections;
     user.status = "rejected";
 
-    // ✅ Find earliest step
+    // ✅ Find earliest step and move user back
     const steps = rejections.map(r => r.step);
     const minStep = Math.min(...steps);
-
-    // 🔥 Move user back
     user.registrationStep = minStep - 1;
 
     await user.save();
 
-    // OPTIONAL: send email with combined reasons
+    // ✅ Send rejection email
     const combinedReason = rejections
       .map(r => `Step ${r.step}: ${r.reason}`)
       .join("\n");
