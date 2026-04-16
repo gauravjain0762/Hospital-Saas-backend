@@ -18,15 +18,22 @@ export const sendOtp = async (req, res) => {
     }
 
     // Duplicate phone check
+// Duplicate phone check
 const existingUser = await User.findOne({ 
   phone, 
-  otpVerified: true  // only block if they've actually completed registration
+  otpVerified: true,
+  _id: { $ne: req.body._id || null } // exclude if same user resending
 });
 
 if (existingUser) {
-  return res.status(400).json({ 
-    message: "This mobile number is already registered. Please use a different number." 
-  });
+  // Allow if doctor has rejections (they need to re-register)
+  const hasRejections = existingUser.rejections && existingUser.rejections.length > 0;
+  
+  if (!hasRejections) {
+    return res.status(400).json({ 
+      message: "This mobile number is already registered. Please use a different number." 
+    });
+  }
 }
 
     const fixedOtp = process.env.FIXED_OTP?.trim();
