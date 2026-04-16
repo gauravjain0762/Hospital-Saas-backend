@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import Patient from "../models/patient.model.js";
+import User from "../models/User.js";
 
 //OTP
 const OTP = "123456"; // For testing purposes, use a fixed OTP
@@ -85,4 +86,216 @@ export const verifyOtp = async (req, res) => {
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
+};
+
+export const createProfile = async (req, res) => {
+  try {
+    const patientId = req.patient.id;
+
+    const {
+      fullName,
+      email,
+      address,
+      city,
+      state,
+    } = req.body;
+
+    const patient = await Patient.findById(patientId);
+
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: "Patient not found",
+      });
+    }
+
+    patient.fullName = fullName;
+    patient.email = email;
+    patient.address = address;
+    patient.city = city;
+    patient.state = state;
+
+    // optional image
+    if (req.file) {
+      patient.profilePhoto = req.file.path;
+    }
+
+    await patient.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Profile created successfully",
+      patient,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// GET logged-in patient profile
+export const getMyProfile = async (req, res) => {
+  try {
+    const patient = await Patient.findById(req.patient.id);
+
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: "Patient not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      patient,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+// PATCH update patient profile
+export const updateProfile = async (req, res) => {
+  try {
+    const patient = await Patient.findById(req.patient.id);
+
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: "Patient not found",
+      });
+    }
+
+    const {
+      fullName,
+      email,
+      address,
+      city,
+      state,
+    } = req.body;
+
+    // Only update sent fields
+    if (fullName) patient.fullName = fullName;
+    if (email) patient.email = email;
+    if (address) patient.address = address;
+    if (city) patient.city = city;
+    if (state) patient.state = state;
+
+    // optional image update
+    if (req.file) {
+      patient.profilePhoto = req.file.path;
+    }
+
+    await patient.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      patient,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// GET unique categories from doctors services
+export const getCategories = async (req, res) => {
+  try {
+    const doctors = await User.find({
+      role: "doctor",
+      status: "approved",
+    }).select("services");
+
+    const allServices = doctors.flatMap(doc => doc.services || []);
+
+    const uniqueServices = [...new Set(allServices)].sort();
+
+    res.status(200).json({
+      success: true,
+      categories: uniqueServices,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+// GET all doctors with optional filters
+export const getDoctors = async (req, res) => {
+  try {
+    const { service, city } = req.query;
+
+    const query = {
+      role: "doctor",
+      status: "approved",
+    };
+
+    if (service) {
+      query.services = { $in: [service] };
+    }
+
+    if (city) {
+      query["clinic.city"] = city;
+    }
+
+    const doctors = await User.find(query).select("-password");
+
+    res.status(200).json({
+      success: true,
+      count: doctors.length,
+      doctors,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+// GET doctor by ID
+export const getDoctorById = async (req, res) => {
+  try {
+    const doctor = await User.findOne({
+      _id: req.params.id,
+      role: "doctor",
+      status: "approved",
+    }).select("-password");
+
+    if (!doctor) {
+      return res.status(404).json({
+        success: false,
+        message: "Doctor not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      doctor,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };
