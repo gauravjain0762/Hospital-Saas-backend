@@ -165,10 +165,17 @@ export const registerStep2 = async (req, res) => {
     }
 
     let photoUrls = [];
-
-    if (req.files && req.files.length > 0) {
-      photoUrls = req.files.map(file => file.path);
-    }
+if (req.files) {
+  if (Array.isArray(req.files)) {
+    // multer array() config
+    photoUrls = req.files.map(file => file.path);
+  } else if (req.files.clinicPhotos) {
+    // multer fields() config
+    photoUrls = req.files.clinicPhotos.map(file => file.path);
+  }
+}
+console.log("FILES:", req.files);
+console.log("BODY:", req.body);
 
     user.clinic = {
       newClinic: newClinic === true || newClinic === "true",
