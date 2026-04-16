@@ -1,0 +1,14 @@
+node_modules
+.git
+.env
+.env.*
+uploads
+logs
+coverage
+dist
+build
+.vscode
+.idea
+*.log
+.DS_Store
+Thumbs.db
