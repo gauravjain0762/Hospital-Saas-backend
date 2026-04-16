@@ -18,23 +18,35 @@ export const sendOtp = async (req, res) => {
     }
 
     // Duplicate phone check
-// Duplicate phone check
-const existingUser = await User.findOne({ 
-  phone, 
-  otpVerified: true,
-  _id: { $ne: req.body._id || null } // exclude if same user resending
-});
-
-if (existingUser) {
-  // Allow if doctor has rejections (they need to re-register)
-  const hasRejections = existingUser.rejections && existingUser.rejections.length > 0;
-  
-  if (!hasRejections) {
-    return res.status(400).json({ 
-      message: "This mobile number is already registered. Please use a different number." 
+    const existingUser = await User.findOne({ 
+      phone, 
+      otpVerified: true,
+      _id: { $ne: req.body._id || null }
     });
-  }
-}
+
+    if (existingUser) {
+      const hasRejections = existingUser.rejections && existingUser.rejections.length > 0;
+
+      // ✅ Account in review — save OTP cost, don't send
+      if (existingUser.status === "pending" && !hasRejections) {
+        return res.status(200).json({
+          success: false,
+          accountStatus: "in_review",
+          message: "Your account is currently under review. We will notify you once approved.",
+        });
+      }
+
+      // ✅ Account approved — block registration
+      if (existingUser.status === "approved") {
+        return res.status(400).json({
+          success: false,
+          accountStatus: "approved",
+          message: "This mobile number is already registered. Please use a different number.",
+        });
+      }
+
+      // ✅ Rejected with rejections — fall through, allow OTP
+    }
 
     const fixedOtp = process.env.FIXED_OTP?.trim();
     const otp = fixedOtp || generateOtp();
@@ -60,7 +72,6 @@ if (existingUser) {
     res.status(500).json({ message: err.message });
   }
 };
-
 
 
 // ✅ VERIFY OTP
