@@ -56,6 +56,7 @@ rejections: {
       address: String,
       about: String,
       city: String,
+      state: String,
       pincode: String,
       consultationFee: Number,
       photos: [String],
@@ -80,6 +81,7 @@ rejections: {
       gstNumber: String, // optional
       panNumber: String,
       accountNumber: String,
+      beneficiaryName: String,
       ifscCode: String,
       accountType: {
         type: String,

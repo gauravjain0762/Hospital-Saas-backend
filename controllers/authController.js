@@ -62,7 +62,7 @@ export const sendOtp = async (req, res) => {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    console.log("OTP:", otp); // 🔥 for testing
+    console.log("OTP:", otp); //  for testing
 
     res.json({
       success: true,
@@ -185,7 +185,7 @@ export const registerStep1 = async (req, res) => {
   }
 };
 
-// ✅ STEP 2 REGISTER
+//  STEP 2 REGISTER
 export const registerStep2 = async (req, res) => {
   try {
     const {
@@ -195,6 +195,7 @@ export const registerStep2 = async (req, res) => {
       about,
       address,
       city,
+      state,
       pincode,
       consultationFee,
     } = req.body;
@@ -227,6 +228,7 @@ console.log("BODY:", req.body);
       about,
       address,
       city,
+      state,
       pincode,
       consultationFee,
       photos: photoUrls,
@@ -314,6 +316,7 @@ export const registerStep4 = async (req, res) => {
       accountNumber,
       ifscCode,
       accountType,
+      beneficiaryName,
     } = req.body;
 
     const user = await User.findById(req.user._id);
@@ -325,7 +328,7 @@ export const registerStep4 = async (req, res) => {
     }
 
     // 🔥 Basic validations
-    if (!panNumber || !accountNumber || !ifscCode || !accountType) {
+    if (!panNumber || !accountNumber || !ifscCode || !accountType || !beneficiaryName) {
       return res.status(400).json({
         message: "Required fields missing",
       });
@@ -373,6 +376,7 @@ if (existingAccount) {
       accountNumber,
       ifscCode,
       accountType,
+      beneficiaryName, 
     };
 
     user.rejections = user.rejections.filter(r => r.step !== 4);
