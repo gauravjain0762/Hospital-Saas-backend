@@ -110,7 +110,6 @@ export const verifyOtp = async (req, res) => {
 
 
 
-// ✅ STEP 1 REGISTER
 export const registerStep1 = async (req, res) => {
   try {
     const { name, email, phone, experience } = req.body;
@@ -123,9 +122,20 @@ export const registerStep1 = async (req, res) => {
       });
     }
 
+    // ✅ Handle profile photo upload
+    let profilePhotoUrl = user.profilePhoto || ""; // keep existing if not uploaded
+    if (req.file) {
+      // multer single()
+      profilePhotoUrl = req.file.path;
+    } else if (req.files?.profilePhoto?.[0]) {
+      // multer fields()
+      profilePhotoUrl = req.files.profilePhoto[0].path;
+    }
+
     user.name = name;
     user.email = email;
     user.experience = experience;
+    user.profilePhoto = profilePhotoUrl;
     user.registrationStep = 1;
 
     user.rejections = user.rejections.filter(r => r.step !== 1);
