@@ -59,6 +59,7 @@ rejections: {
       state: String,
       pincode: String,
       consultationFee: Number,
+      freeFollowupDays: { type: Number, default: 0 },
       photos: [String],
     },
 

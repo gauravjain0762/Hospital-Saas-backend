@@ -27,8 +27,8 @@ export const sendOtp = async (req, res) => {
     if (existingUser) {
       const hasRejections = existingUser.rejections && existingUser.rejections.length > 0;
 
-      // ✅ Account in review — save OTP cost, don't send
-      // ✅ Account in review — save OTP cost, don't send
+      
+      //  Account in review — save OTP cost, don't send
 if (existingUser.status === "pending" && !hasRejections && existingUser.registrationStep >= 5) {
   return res.status(200).json({
     success: false,
@@ -199,6 +199,7 @@ export const registerStep2 = async (req, res) => {
       state,
       pincode,
       consultationFee,
+      freeFollowupDays,
     } = req.body;
 
     const user = await User.findById(req.user._id);
@@ -232,6 +233,7 @@ console.log("BODY:", req.body);
       state,
       pincode,
       consultationFee,
+      freeFollowupDays: Number(freeFollowupDays) || 0,
       photos: photoUrls,
     };
 
