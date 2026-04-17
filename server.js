@@ -6,6 +6,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import patientRoutes from "./routes/patient.routes.js";
 import User from "./models/User.js";
+import doctorRoutes from "./routes/doctor.routes.js";
 
 dotenv.config();
 
@@ -25,6 +26,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 
 app.use("/api/patient", patientRoutes);
+
+app.use("/api/doctor", doctorRoutes);
 
 app.use((err, req, res, next) => {
   console.error("GLOBAL ERROR:", err);
