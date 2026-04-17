@@ -9,7 +9,8 @@ import {
     updateProfile,
     getCategories,
     getDoctors,
-    getDoctorById
+    getDoctorById,
+    bookAppointment
 } from "../controllers/patient.controller.js";
 
 import patientAuth from "../middleware/patientAuth.js";

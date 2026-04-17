@@ -1,6 +1,8 @@
 import jwt from "jsonwebtoken";
 import Patient from "../models/patient.model.js";
 import User from "../models/User.js";
+import Appointment from "../models/appointment.model.js";
+import Queue from "../models/queue.model.js";
 
 //OTP
 const OTP = "123456"; // For testing purposes, use a fixed OTP
@@ -290,6 +292,110 @@ export const getDoctorById = async (req, res) => {
     res.status(200).json({
       success: true,
       doctor,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+export const bookAppointment = async (req, res) => {
+  try {
+    const patientId = req.patient.id;
+    const { doctorId, date } = req.body;
+
+    if (!doctorId || !date) {
+      return res.status(400).json({
+        success: false,
+        message: "doctorId and date required",
+      });
+    }
+
+    const doctor = await User.findOne({
+      _id: doctorId,
+      role: "doctor",
+      status: "approved",
+    });
+
+    if (!doctor) {
+      return res.status(404).json({
+        success: false,
+        message: "Doctor not found",
+      });
+    }
+
+    // Queue for today
+    let queue = await Queue.findOne({ doctorId, date });
+
+    if (!queue) {
+      queue = await Queue.create({
+        doctorId,
+        date,
+        currentToken: 0,
+        lastIssuedToken: 0,
+      });
+    }
+
+    // max 500 tokens
+    if (queue.lastIssuedToken >= 500) {
+      return res.status(400).json({
+        success: false,
+        message: "Today's booking limit reached",
+      });
+    }
+
+    const tokenNumber = queue.lastIssuedToken + 1;
+    queue.lastIssuedToken = tokenNumber;
+    await queue.save();
+
+    // Follow-up logic
+    let consultationFee = doctor.clinic?.consultationFee || 0;
+    let isFollowup = false;
+
+    const freeDays = doctor.freeFollowupDays || 0;
+
+    if (freeDays > 0) {
+      const lastCompleted = await Appointment.findOne({
+        doctorId,
+        patientId,
+        status: "completed",
+        consultationFee: { $gt: 0 },
+      }).sort({ completedAt: -1 });
+
+      if (lastCompleted && lastCompleted.completedAt) {
+        const lastDate = new Date(lastCompleted.completedAt);
+        const expiry = new Date(lastDate);
+        expiry.setDate(expiry.getDate() + freeDays);
+
+        const bookingDate = new Date(date);
+
+        if (bookingDate <= expiry) {
+          consultationFee = 0;
+          isFollowup = true;
+        }
+      }
+    }
+
+    const appointment = await Appointment.create({
+      doctorId,
+      patientId,
+      date,
+      tokenNumber,
+      consultationFee,
+      isFollowup,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Appointment booked successfully",
+      tokenNumber,
+      consultationFee,
+      isFollowup,
+      appointment,
     });
 
   } catch (error) {
