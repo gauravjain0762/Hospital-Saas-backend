@@ -91,7 +91,7 @@ if (existingUser.status === "pending" && !hasRejections && existingUser.registra
 };
 
 
-// ✅ VERIFY OTP
+//  VERIFY OTP
 export const verifyOtp = async (req, res) => {
   try {
     const { phone, otp } = req.body;
@@ -127,10 +127,16 @@ export const verifyOtp = async (req, res) => {
       token,
       user: {
         id: user._id,
+        name: user.name,
+        phone: user.phone,
+        profilePhoto: user.profilePhoto,
+        status: user.status,
+        activeStatus: user.activeStatus,
         registrationStep: user.registrationStep,
         rejectedSteps: user.rejections?.map(r => r.step) || [],
       },
     });
+    //try
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
