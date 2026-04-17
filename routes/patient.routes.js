@@ -10,7 +10,9 @@ import {
     getCategories,
     getDoctors,
     getDoctorById,
-    bookAppointment
+    bookAppointment,
+    getMyAppointments,
+    cancelAppointment
 } from "../controllers/patient.controller.js";
 
 import patientAuth from "../middleware/patientAuth.js";
@@ -33,6 +35,12 @@ router.get("/categories", getCategories);
 router.get("/doctors", getDoctors);
 
 router.get("/doctors/:id", getDoctorById);
+
+router.post("/book-appointment", patientAuth, bookAppointment);
+
+router.get("/my-appointments", patientAuth, getMyAppointments);
+
+router.patch("/cancel-appointment/:id", patientAuth, cancelAppointment);
 
 
 

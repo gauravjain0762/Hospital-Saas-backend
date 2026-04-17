@@ -328,6 +328,20 @@ export const bookAppointment = async (req, res) => {
       });
     }
 
+    const existingAppointment = await Appointment.findOne({
+      doctorId,
+      patientId,
+      date,
+      status: { $ne: "cancelled" }
+    });
+
+    if (existingAppointment) {
+      return res.status(400).json({ 
+        success: false,
+        message: "You already booked this doctor for this date",
+      });
+    }
+
     // Queue for today
     let queue = await Queue.findOne({ doctorId, date });
 
@@ -395,6 +409,94 @@ export const bookAppointment = async (req, res) => {
       tokenNumber,
       consultationFee,
       isFollowup,
+      appointment,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+export const getMyAppointments = async (req, res) => {
+  try {
+    const patientId = req.patient.id;
+    const { status, date } = req.query;
+
+    const query = { patientId };
+
+    //filter by status
+    if (status) {
+      query.status = status;
+    }
+
+    //filter by today
+    if (date === "today") {
+      const today = new Date().toISOString().split("T")[0];
+      query.date = today;
+    }
+
+    const appointments = await Appointment.find(query)
+      .populate({
+        path: "doctorId",
+        select: "name profilePhoto services clinic experience",
+      })
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: appointments.length,
+      appointments,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const cancelAppointment = async (req, res) => {
+  try {
+    const patientId = req.patient.id;
+    const appointmentId = req.params.id;
+
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
+      patientId,
+    });
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found",
+      });
+    }
+
+    if (appointment.status === "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Completed appointment cannot be cancelled",
+      });
+    }
+
+    if (appointment.status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Appointment already cancelled",
+      });
+    }
+
+    appointment.status = "cancelled";
+    await appointment.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Appointment cancelled successfully",
       appointment,
     });
 

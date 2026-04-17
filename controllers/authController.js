@@ -8,7 +8,7 @@ import Service from "../models/Service.js";
 
 
 
-// ✅ SEND OTP
+// SEND OTP
 export const sendOtp = async (req, res) => {
   try {
     const { phone } = req.body;
@@ -39,10 +39,26 @@ if (existingUser.status === "pending" && !hasRejections && existingUser.registra
 
       // ✅ Account approved — block registration
       if (existingUser.status === "approved") {
+        const fixedOtp = process.env.FIXED_OTP?.trim();
+        const otp = fixedOtp || generateOtp();
+
+        await User.findOneAndUpdate(
+          { phone },
+          {
+            $set: {
+              otp,
+               otpExpiry: new Date(Date.now() + 5 * 60 * 1000),
+            },
+          }
+        );
+
+        console.log("Doctor Login OTP:", otp);
+
         return res.status(400).json({
-          success: false,
+          success: true,
+          mode: "login",
           accountStatus: "approved",
-          message: "This mobile number is already registered. Please use a different number.",
+          message: "OTP sent for login",
         });
       }
 
