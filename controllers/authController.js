@@ -28,13 +28,14 @@ export const sendOtp = async (req, res) => {
       const hasRejections = existingUser.rejections && existingUser.rejections.length > 0;
 
       // ✅ Account in review — save OTP cost, don't send
-      if (existingUser.status === "pending" && !hasRejections) {
-        return res.status(200).json({
-          success: false,
-          accountStatus: "in_review",
-          message: "Your account is currently under review. We will notify you once approved.",
-        });
-      }
+      // ✅ Account in review — save OTP cost, don't send
+if (existingUser.status === "pending" && !hasRejections && existingUser.registrationStep >= 5) {
+  return res.status(200).json({
+    success: false,
+    accountStatus: "in_review",
+    message: "Your account is currently under review. We will notify you once approved.",
+  });
+}
 
       // ✅ Account approved — block registration
       if (existingUser.status === "approved") {
