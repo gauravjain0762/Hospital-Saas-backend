@@ -1,5 +1,6 @@
 import Queue from "../models/queue.model.js";
 import Appointment from "../models/appointment.model.js";
+import admin from "../utils/firebase.js";
 
 export const getTodayQueue = async (req, res) => {
   try {
@@ -112,6 +113,37 @@ export const nextToken = async (req, res) => {
       currentToken: queue.currentToken,
       lastIssuedToken: queue.lastIssuedToken,
     });
+
+    // 🔥 FIREBASE NOTIFICATION LOGIC
+    const notifyToken = queue.currentToken + 5;
+
+    const targetAppointments = await Appointment.find({
+      doctorId,
+      date: today,
+      tokenNumber: notifyToken,
+      status: "waiting",
+    }).populate("patientId");
+
+    for (const item of targetAppointments) {
+      const fcmToken = item.patientId?.fcmToken;
+
+      if (fcmToken) {
+        try {
+          await admin.messaging().send({
+            token: fcmToken,
+            notification: {
+              title: "Appointment Reminder",
+              body: `Current token is ${queue.currentToken}. Your token is ${item.tokenNumber}. Please reach clinic soon.`,
+            },
+          });
+
+          console.log("Notification sent to token:", item.tokenNumber);
+
+        } catch (err) {
+          console.log("FCM send failed:", err.message);
+        }
+      }
+    }
 
     res.status(200).json({
       success: true,

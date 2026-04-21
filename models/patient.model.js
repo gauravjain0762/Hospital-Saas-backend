@@ -14,6 +14,10 @@ const patientSchema = new mongoose.Schema(
     address: String,
     city: String,
     state: String,
+    fcmToken: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );

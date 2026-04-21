@@ -559,3 +559,25 @@ export const getQueueStatus = async (req, res) => {
     });
   }
 };
+
+export const saveFcmToken = async (req, res) => {
+  try {
+    const patientId = req.patient.id;
+    const { fcmToken } = req.body;
+
+    await Patient.findIdAndUpdate(patientId, {
+      fcmToken,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "FCM token saved",
+    });
+  
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

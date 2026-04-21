@@ -13,7 +13,8 @@ import {
     bookAppointment,
     getMyAppointments,
     cancelAppointment,
-    getQueueStatus
+    getQueueStatus,
+    saveFcmToken
 } from "../controllers/patient.controller.js";
 
 import patientAuth from "../middleware/patientAuth.js";
@@ -44,6 +45,8 @@ router.get("/my-appointments", patientAuth, getMyAppointments);
 router.patch("/cancel-appointment/:id", patientAuth, cancelAppointment);
 
 router.get("/queue-status/:id", patientAuth, getQueueStatus);
+
+router.patch("/save-fcm-token", patientAuth, saveFcmToken);
 
 
 
