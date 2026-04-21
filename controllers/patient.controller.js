@@ -507,3 +507,55 @@ export const cancelAppointment = async (req, res) => {
     });
   }
 };
+
+export const getQueueStatus = async (req, res) => {
+  try {
+    const patientId = req.patient.id;
+    const appointmentId = req.params.id;
+
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
+      patientId,
+    }).populate({
+      path: "doctorId",
+      select: "name clinic",
+    });
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found",
+      });
+    }
+
+    const queue = await Queue.findOne({
+      doctorId: appointment.doctorId._id,
+      date: appointment.date,
+    });
+
+    const currentToken = queue?.currentToken || 0;
+
+    let patientsAhead = appointment.tokenNumber - currentToken;
+
+    if (patientsAhead < 0) patientsAhead = 0;
+
+    res.status(200).json({
+      success: true,
+      yourToken: appointment.tokenNumber,
+      currentToken,
+      patientsAhead,
+      status: appointment.status,
+      date: appointment.date,
+      doctor: {
+        name: appointment.doctorId.name,
+        clinicName: appointment.doctorId.clinic?.clinicName || "",
+      },
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

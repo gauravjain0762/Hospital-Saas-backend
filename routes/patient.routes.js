@@ -12,7 +12,8 @@ import {
     getDoctorById,
     bookAppointment,
     getMyAppointments,
-    cancelAppointment
+    cancelAppointment,
+    getQueueStatus
 } from "../controllers/patient.controller.js";
 
 import patientAuth from "../middleware/patientAuth.js";
@@ -41,6 +42,8 @@ router.post("/book-appointment", patientAuth, bookAppointment);
 router.get("/my-appointments", patientAuth, getMyAppointments);
 
 router.patch("/cancel-appointment/:id", patientAuth, cancelAppointment);
+
+router.get("/queue-status/:id", patientAuth, getQueueStatus);
 
 
 
