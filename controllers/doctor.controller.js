@@ -47,7 +47,6 @@ export const getTodayQueue = async (req, res) => {
 export const nextToken = async (req, res) => {
   try {
     const doctorId = req.user._id;
-
     const today = new Date().toISOString().split("T")[0];
 
     const queue = await Queue.findOne({
@@ -71,7 +70,8 @@ export const nextToken = async (req, res) => {
 
     const oldToken = queue.currentToken;
     const newToken = oldToken + 1;
-   
+
+    // complete previous token
     if (oldToken > 0) {
       await Appointment.findOneAndUpdate(
         {
@@ -79,14 +79,15 @@ export const nextToken = async (req, res) => {
           date: today,
           tokenNumber: oldToken,
           status: "in_progress",
-      },
-      {
-        status: "completed",
-        completedAt: new Date(),
-      }
-    );
+        },
+        {
+          status: "completed",
+          completedAt: new Date(),
+        }
+      );
     }
 
+    // start new token
     await Appointment.findOneAndUpdate(
       {
         doctorId,
@@ -98,6 +99,19 @@ export const nextToken = async (req, res) => {
         status: "in_progress",
       }
     );
+
+    // update queue token
+    queue.currentToken = newToken;
+    await queue.save();
+
+    // socket emit
+    const io = req.app.get("io");
+
+    io.to(`doctor_${doctorId}`).emit("tokenUpdated", {
+      doctorId,
+      currentToken: queue.currentToken,
+      lastIssuedToken: queue.lastIssuedToken,
+    });
 
     res.status(200).json({
       success: true,
