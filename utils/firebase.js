@@ -1,20 +1,12 @@
 import admin from "firebase-admin";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// adjust path if needed
-const serviceAccountPath = path.join(
-  __dirname,
-  "../firebase-service-account.json"
-);
 
 const serviceAccount = JSON.parse(
-  fs.readFileSync(serviceAccountPath, "utf8")
+  process.env.FIREBASE_SERVICE_ACCOUNT
 );
+
+// important: restore line breaks in private key
+serviceAccount.private_key =
+  serviceAccount.private_key.replace(/\\n/g, "\n");
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
