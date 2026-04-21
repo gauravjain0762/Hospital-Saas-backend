@@ -69,8 +69,35 @@ export const nextToken = async (req, res) => {
       });
     }
 
-    queue.currentToken += 1;
-    await queue.save();
+    const oldToken = queue.currentToken;
+    const newToken = oldToken + 1;
+   
+    if (oldToken > 0) {
+      await Appointment.findOneAndUpdate(
+        {
+          doctorId,
+          date: today,
+          tokenNumber: oldToken,
+          status: "in_progress",
+      },
+      {
+        status: "completed",
+        completedAt: new Date(),
+      }
+    );
+    }
+
+    await Appointment.findOneAndUpdate(
+      {
+        doctorId,
+        date: today,
+        tokenNumber: newToken,
+        status: "waiting",
+      },
+      {
+        status: "in_progress",
+      }
+    );
 
     res.status(200).json({
       success: true,

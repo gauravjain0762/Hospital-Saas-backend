@@ -23,7 +23,7 @@ const appointmentSchema = new mongoose.Schema(
 
   status: {
     type: String,
-    enum: ["waiting", "completed", "cancelled"],
+    enum: ["waiting", "in_progress", "completed", "cancelled"],
     default: "waiting",
   },
 
