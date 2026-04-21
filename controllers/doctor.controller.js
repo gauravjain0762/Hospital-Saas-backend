@@ -43,3 +43,46 @@ export const getTodayQueue = async (req, res) => {
     });
   }
 };
+
+export const nextToken = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+
+    const today = new Date().toISOString().split("T")[0];
+
+    const queue = await Queue.findOne({
+      doctorId,
+      date: today,
+    });
+
+    if (!queue) {
+      return res.status(404).json({
+        success: false,
+        message: "No queue found for today",
+      });
+    }
+
+    if (queue.currentToken >= queue.lastIssuedToken) {
+      return res.status(400).json({
+        success: false,
+        message: "No more patients waiting",
+      });
+    }
+
+    queue.currentToken += 1;
+    await queue.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Moved to next token",
+      currentToken: queue.currentToken,
+      lastIssuedToken: queue.lastIssuedToken,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
