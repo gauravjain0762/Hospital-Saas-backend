@@ -693,7 +693,8 @@ export const getAppointmentDetails = async (req, res) => {
         displayId,
         tokenNumber: appointment.tokenNumber,
         date: appointment.date,
-        time: appointment.time,
+        time: appointment.visitTime || appointment.slot,
+        slot: appointment.slot,
         status: appointment.status,
 
         doctor: {
