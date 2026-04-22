@@ -489,14 +489,25 @@ export const getMyAppointments = async (req, res) => {
         doctor: {
           name: item.doctorId?.name || "",
           profilePhoto: item.doctorId?.profilePhoto || "",
+
+          // ✅ existing field
           specialization:
             item.doctorId?.services?.[0] || "General",
+
+          // ✅ NEW ADDED FIELD
+          services:
+            item.doctorId?.services || [],
+
+          // ✅ OPTIONAL (already selected in populate)
+          experience:
+            item.doctorId?.experience || 0,
         },
 
         clinic: {
           clinicName:
             item.doctorId?.clinic?.clinicName || "",
-          city: item.doctorId?.clinic?.city || "",
+          city:
+            item.doctorId?.clinic?.city || "",
           googleBusinessLink:
             item.doctorId?.clinic?.googleBusinessLink || "",
         },
