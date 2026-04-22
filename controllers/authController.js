@@ -208,7 +208,7 @@ export const registerStep1 = async (req, res) => {
   }
 };
 
-//  STEP 2 REGISTER
+// STEP 2 REGISTER
 export const registerStep2 = async (req, res) => {
   try {
     const {
@@ -222,6 +222,11 @@ export const registerStep2 = async (req, res) => {
       pincode,
       consultationFee,
       freeFollowupDays,
+
+      // NEW FIELDS
+      rating,
+      latitude,
+      longitude
     } = req.body;
 
     const user = await User.findById(req.user._id);
@@ -233,17 +238,14 @@ export const registerStep2 = async (req, res) => {
     }
 
     let photoUrls = [];
-if (req.files) {
-  if (Array.isArray(req.files)) {
-    // multer array() config
-    photoUrls = req.files.map(file => file.path);
-  } else if (req.files.clinicPhotos) {
-    // multer fields() config
-    photoUrls = req.files.clinicPhotos.map(file => file.path);
-  }
-}
-console.log("FILES:", req.files);
-console.log("BODY:", req.body);
+
+    if (req.files) {
+      if (Array.isArray(req.files)) {
+        photoUrls = req.files.map(file => file.path);
+      } else if (req.files.clinicPhotos) {
+        photoUrls = req.files.clinicPhotos.map(file => file.path);
+      }
+    }
 
     user.clinic = {
       newClinic: newClinic === true || newClinic === "true",
@@ -254,8 +256,14 @@ console.log("BODY:", req.body);
       city,
       state,
       pincode,
-      consultationFee,
+      consultationFee: Number(consultationFee),
       freeFollowupDays: Number(freeFollowupDays) || 0,
+
+      // NEW FIELDS
+      rating: Number(rating) || 0,
+      latitude: Number(latitude),
+      longitude: Number(longitude),
+
       photos: photoUrls,
     };
 
@@ -270,6 +278,7 @@ console.log("BODY:", req.body);
       message: "Step 2 completed",
       clinic: user.clinic,
     });
+
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
