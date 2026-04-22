@@ -790,74 +790,63 @@ export const getDoctorSlots = async (req, res) => {
 export const getAppointmentPreview = async (req, res) => {
   try {
     const { doctorId } = req.params;
-    const { date } = req.query;
+    const { date, slot } = req.query;
 
-    if (!date) {
+    if (!date || !slot) {
       return res.status(400).json({
         success: false,
-        message: "Date is required"
+        message: "Date and slot required"
       });
     }
 
     const doctor = await User.findById(doctorId);
 
-    if (!doctor || doctor.role !== "doctor") {
-      return res.status(404).json({
-        success: false,
-        message: "Doctor not found"
-      });
-    }
-
-    // total bookings for selected date
     const totalBookings = await Appointment.countDocuments({
       doctorId,
       date,
+      slot,
       status: { $ne: "cancelled" }
     });
 
-    // completed tokens for selected date
     const doneBookings = await Appointment.countDocuments({
       doctorId,
       date,
+      slot,
       status: "done"
     });
 
     const currentToken = doneBookings;
     const yourToken = totalBookings + 1;
 
-    const avgMinutes = 5;
-
-    const patientsBeforeYou = yourToken - currentToken - 1;
-
-    const waitMinutes = Math.max(0, patientsBeforeYou * avgMinutes);
-
-    const now = new Date();
-
-    const estimatedDate = new Date(
-      now.getTime() + waitMinutes * 60000
+    const waitMinutes = Math.max(
+      0,
+      (yourToken - currentToken - 1) * 5
     );
 
-    const estimatedTime = estimatedDate.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit"
-    });
+    const startTime = slot.split("-")[0].trim(); // 09:00
+
+    const [hour, min] = startTime.split(":");
+
+    const estimate = new Date(`${date}T${hour}:${min}:00`);
+
+    estimate.setMinutes(estimate.getMinutes() + waitMinutes);
 
     res.json({
       success: true,
-      date,
-      doctorName: doctor.name,
       currentToken,
       yourToken,
       estimatedWaitMinutes: waitMinutes,
-      estimatedTime,
-      consultationFee: doctor.clinic?.consultationFee || 0,
+      estimatedTime: estimate.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit"
+      }),
       freeFollowupDays: doctor.clinic?.freeFollowupDays || 0
     });
 
-  } catch (error) {
+  } catch (err) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: err.message
     });
   }
 };
