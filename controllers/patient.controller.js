@@ -462,19 +462,12 @@ export const bookAppointment = async (req, res) => {
 export const getMyAppointments = async (req, res) => {
   try {
     const patientId = req.patient.id;
-    const { status, date } = req.query;
+    const { status } = req.query;
 
     const query = { patientId };
 
-    //filter by status
     if (status) {
       query.status = status;
-    }
-
-    //filter by today
-    if (date === "today") {
-      const today = new Date().toISOString().split("T")[0];
-      query.date = today;
     }
 
     const appointments = await Appointment.find(query)
@@ -484,10 +477,57 @@ export const getMyAppointments = async (req, res) => {
       })
       .sort({ createdAt: -1 });
 
+    const result = [];
+
+    for (const item of appointments) {
+      const queue = await Queue.findOne({
+        doctorId: item.doctorId?._id,
+        date: item.date,
+      });
+
+      const currentToken = queue?.currentToken || 0;
+
+      result.push({
+        id: item._id,
+        status: item.status,
+        tokenNumber: item.tokenNumber,
+        currentToken,
+
+        date: item.date,
+        time: item.time,
+
+        doctor: {
+          name: item.doctorId?.name || "",
+          profilePhoto: item.doctorId?.profilePhoto || "",
+          specialization:
+            item.doctorId?.services?.[0] || "General",
+        },
+
+        clinic: {
+          clinicName:
+            item.doctorId?.clinic?.clinicName || "",
+          city: item.doctorId?.clinic?.city || "",
+          googleBusinessLink:
+            item.doctorId?.clinic?.googleBusinessLink || "",
+        },
+      });
+    }
+
+    const upcomingCount = result.filter(
+      (x) =>
+        x.status === "waiting" ||
+        x.status === "in_progress"
+    ).length;
+
+    const completedCount = result.filter(
+      (x) => x.status === "completed"
+    ).length;
+
     res.status(200).json({
       success: true,
-      count: appointments.length,
-      appointments,
+      upcomingCount,
+      completedCount,
+      appointments: result,
     });
 
   } catch (error) {
