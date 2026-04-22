@@ -706,6 +706,9 @@ export const getAppointmentDetails = async (req, res) => {
           clinicName: doctor?.clinic?.clinicName || "",
           address: doctor?.clinic?.address || "",
           city: doctor?.clinic?.city || "",
+          rating: doctor?.clinic?.rating ?? 0,
+          latitude: doctor?.clinic?.latitude ?? null,
+          longitude: doctor?.clinic?.longitude ?? null,
           googleBusinessLink:
             doctor?.clinic?.googleBusinessLink || "",
         },
