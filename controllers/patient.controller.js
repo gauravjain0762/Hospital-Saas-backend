@@ -310,7 +310,7 @@ export const bookAppointment = async (req, res) => {
     const {
       doctorId,
       date,
-      time,
+      slot,
       fullName,
       email,
       phone,
@@ -318,7 +318,7 @@ export const bookAppointment = async (req, res) => {
       paymentMethod,
     } = req.body;
 
-    if (!doctorId || !date || !fullName || !phone) {
+    if (!doctorId || !date || !slot || !fullName || !phone) {
       return res.status(400).json({
         success: false,
         message: "Required fields missing",
@@ -338,7 +338,34 @@ export const bookAppointment = async (req, res) => {
       });
     }
 
-    // One booking per day per doctor
+    // Validate slot against doctor availability
+    const selectedDay = new Date(date).toLocaleDateString("en-US", {
+      weekday: "long",
+    });
+
+    const dayAvailability = doctor.availability.find(
+      (d) => d.day === selectedDay && d.isActive
+    );
+
+    if (!dayAvailability) {
+      return res.status(400).json({
+        success: false,
+        message: "Doctor unavailable on selected date",
+      });
+    }
+
+    const validSlot = dayAvailability.slots.find(
+      (s) => `${s.startTime} - ${s.endTime}` === slot
+    );
+
+    if (!validSlot) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid slot selected",
+      });
+    }
+
+    // One booking per day
     const existing = await Appointment.findOne({
       doctorId,
       patientId,
@@ -349,11 +376,10 @@ export const bookAppointment = async (req, res) => {
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: "You already booked this doctor for this date",
+        message: "Already booked for this date",
       });
     }
 
-    // Queue
     let queue = await Queue.findOne({ doctorId, date });
 
     if (!queue) {
@@ -365,55 +391,21 @@ export const bookAppointment = async (req, res) => {
       });
     }
 
-    if (queue.lastIssuedToken >= 500) {
-      return res.status(400).json({
-        success: false,
-        message: "Daily booking limit reached",
-      });
-    }
-
     const tokenNumber = queue.lastIssuedToken + 1;
     queue.lastIssuedToken = tokenNumber;
     await queue.save();
 
-    // Followup logic
     let consultationFee = doctor.clinic?.consultationFee || 0;
     let isFollowup = false;
 
-    const freeDays = doctor.freeFollowupDays || 0;
+    let paymentStatus =
+      paymentMethod === "online" ? "pending" : "cash_pending";
 
-    if (freeDays > 0) {
-      const lastCompleted = await Appointment.findOne({
-        doctorId,
-        patientId,
-        status: "completed",
-        consultationFee: { $gt: 0 },
-      }).sort({ completedAt: -1 });
-
-      if (lastCompleted?.completedAt) {
-        const expiry = new Date(lastCompleted.completedAt);
-        expiry.setDate(expiry.getDate() + freeDays);
-
-        if (new Date(date) <= expiry) {
-          consultationFee = 0;
-          isFollowup = true;
-        }
-      }
-    }
-
-    // Payment status
-    let paymentStatus = "cash_pending";
-
-    if (paymentMethod === "online") {
-      paymentStatus = "pending";
-    }
-
-    // Save booking
     const appointment = await Appointment.create({
       doctorId,
       patientId,
       date,
-      time,
+      slot,
       tokenNumber,
       fullName,
       email,
@@ -423,9 +415,9 @@ export const bookAppointment = async (req, res) => {
       paymentStatus,
       consultationFee,
       isFollowup,
+      status: "waiting",
     });
 
-    // ETA Logic (10 min each token ahead)
     const patientsAhead = tokenNumber - queue.currentToken;
     const mins = patientsAhead * 10;
 
@@ -444,8 +436,6 @@ export const bookAppointment = async (req, res) => {
       waitList: tokenNumber,
       expectedTime,
       consultationFee,
-      isFollowup,
-      paymentMethod,
       paymentStatus,
       appointment,
     });
@@ -717,6 +707,67 @@ export const getAppointmentDetails = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message,
+    });
+  }
+};
+
+export const getDoctorSlots = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+
+    const doctor = await User.findById(doctorId);
+
+    if (!doctor || doctor.role !== "doctor") {
+      return res.status(404).json({
+        success: false,
+        message: "Doctor not found"
+      });
+    }
+
+    const next7Days = [];
+    const today = new Date();
+
+    const dayNames = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday"
+    ];
+
+    for (let i = 0; i < 7; i++) {
+      const current = new Date();
+      current.setDate(today.getDate() + i);
+
+      const dayName = dayNames[current.getDay()];
+
+      const doctorDay = doctor.availability.find(
+        (item) => item.day === dayName && item.isActive
+      );
+
+      if (doctorDay) {
+        next7Days.push({
+          date: current.toISOString().split("T")[0],
+          day: dayName,
+          availableSlots: doctorDay.slots.map(
+            (slot) => `${slot.startTime} - ${slot.endTime}`
+          )
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      doctorName: doctor.name,
+      slots: next7Days
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
     });
   }
 };

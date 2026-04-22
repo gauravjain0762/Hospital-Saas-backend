@@ -159,3 +159,120 @@ export const nextToken = async (req, res) => {
     });
   }
 };
+
+export const markDone = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+    const appointmentId = req.params.id;
+
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
+      doctorId,
+    });
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found",
+      });
+    }
+
+    if (appointment.status === "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Already completed",
+      });
+    }
+
+    // mark completed
+    appointment.status = "completed";
+    appointment.completedAt = new Date();
+    await appointment.save();
+
+    const queue = await Queue.findOne({
+      doctorId,
+      date: appointment.date,
+    });
+
+    if (!queue) {
+      return res.status(404).json({
+        success: false,
+        message: "Queue not found",
+      });
+    }
+
+    // forward only logic
+    if (appointment.tokenNumber >= queue.currentToken) {
+      queue.currentToken = appointment.tokenNumber;
+    }
+
+    // find next waiting token greater than current
+    const nextWaiting = await Appointment.findOne({
+      doctorId,
+      date: appointment.date,
+      tokenNumber: { $gt: queue.currentToken },
+      status: "waiting",
+    }).sort({ tokenNumber: 1 });
+
+    if (nextWaiting) {
+      queue.currentToken = nextWaiting.tokenNumber;
+    }
+
+    await queue.save();
+
+    // socket emit
+    const io = req.app.get("io");
+
+    io.to(`doctor_${doctorId}`).emit("tokenUpdated", {
+      doctorId,
+      currentToken: queue.currentToken,
+      lastIssuedToken: queue.lastIssuedToken,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Appointment completed",
+      currentToken: queue.currentToken,
+      completedToken: appointment.tokenNumber,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const markPaid = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+    const appointmentId = req.params.id;
+
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
+      doctorId,
+    });
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found",
+      });
+    }
+
+    appointment.paymentStatus = "paid";
+    await appointment.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Payment marked as paid",
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

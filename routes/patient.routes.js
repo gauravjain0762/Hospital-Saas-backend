@@ -16,6 +16,7 @@ import {
     getQueueStatus,
     saveFcmToken,
     getAppointmentDetails,
+    getDoctorSlots,
 } from "../controllers/patient.controller.js";
 
 import patientAuth from "../middleware/patientAuth.js";
@@ -50,6 +51,8 @@ router.patch("/cancel-appointment/:id", patientAuth, cancelAppointment);
 router.get("/queue-status/:id", patientAuth, getQueueStatus);
 
 router.patch("/save-fcm-token", patientAuth, saveFcmToken);
+
+router.get("/doctor-slots/:doctorId", getDoctorSlots);
 
 
 

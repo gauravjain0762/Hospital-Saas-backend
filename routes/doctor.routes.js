@@ -3,10 +3,10 @@ const router = express.Router();
 
 import { protect } from "../middleware/authMiddleware.js";
 import { getTodayQueue,
-    nextToken
+    markDone,
  } from "../controllers/doctor.controller.js";
 
 router.get("/today-queue", protect, getTodayQueue);
-router.patch("/next-token", protect, nextToken);
+router.patch("/mark-done/:id", protect, markDone);
 
 export default router;
