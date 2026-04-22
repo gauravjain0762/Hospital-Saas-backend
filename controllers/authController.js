@@ -247,25 +247,38 @@ export const registerStep2 = async (req, res) => {
       }
     }
 
+ if (
+  latitude === undefined ||
+  longitude === undefined ||
+  latitude === "" ||
+  longitude === ""
+) {
+  return res.status(400).json({
+    success: false,
+    message: "Latitude and Longitude are required"
+  });
+}
+
     user.clinic = {
-      newClinic: newClinic === true || newClinic === "true",
-      googleBusinessLink,
-      clinicName,
-      about,
-      address,
-      city,
-      state,
-      pincode,
-      consultationFee: Number(consultationFee),
-      freeFollowupDays: Number(freeFollowupDays) || 0,
+  newClinic: newClinic === true || newClinic === "true",
+  googleBusinessLink,
+  clinicName,
+  about,
+  address,
+  city,
+  state,
+  pincode,
 
-      // NEW FIELDS
-      rating: Number(rating) || 0,
-      latitude: Number(latitude),
-      longitude: Number(longitude),
+  consultationFee: Number(consultationFee),
+  freeFollowupDays: Number(freeFollowupDays) || 0,
 
-      photos: photoUrls,
-    };
+  rating: Number(rating) || 0,
+
+  latitude: latitude ? Number(latitude) : null,
+  longitude: longitude ? Number(longitude) : null,
+
+  photos: photoUrls,
+};
 
     user.rejections = user.rejections.filter(r => r.step !== 2);
 
