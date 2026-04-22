@@ -17,6 +17,7 @@ import {
     saveFcmToken,
     getAppointmentDetails,
     getDoctorSlots,
+    getAppointmentPreview,
 } from "../controllers/patient.controller.js";
 
 import patientAuth from "../middleware/patientAuth.js";
@@ -54,6 +55,7 @@ router.patch("/save-fcm-token", patientAuth, saveFcmToken);
 
 router.get("/doctor-slots/:doctorId", getDoctorSlots);
 
+router.get("/appointment-preview/:doctorId", getAppointmentPreview);
 
 
 export default router; // ✅ IMPORTANT

@@ -786,3 +786,62 @@ export const getDoctorSlots = async (req, res) => {
     });
   }
 };
+
+
+export const getAppointmentPreview = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    const { date } = req.query;
+
+    const doctor = await User.findById(doctorId);
+
+    if (!doctor) {
+      return res.status(404).json({
+        success: false,
+        message: "Doctor not found"
+      });
+    }
+
+    const bookings = await Appointment.find({
+      doctorId,
+      date,
+      status: { $ne: "cancelled" }
+    });
+
+    const currentToken = doctor.currentToken || 0;
+
+    const yourToken = bookings.length + 1;
+
+    const AVG_TIME = 5;
+
+    const patientsBeforeYou = yourToken - currentToken - 1;
+
+    const waitMinutes = Math.max(0, patientsBeforeYou * AVG_TIME);
+
+    const now = new Date();
+
+    const estimatedTimeDate = new Date(now.getTime() + waitMinutes * 60000);
+
+    const estimatedTime = estimatedTimeDate.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
+    res.json({
+      success: true,
+      doctorName: doctor.name,
+      currentToken,
+      yourToken,
+      estimatedTime,
+      estimatedWaitMinutes: waitMinutes,
+      consultationFee: doctor.clinic?.consultationFee || 0,
+      freeFollowupDays: doctor.clinic?.freeFollowupDays || 0
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
