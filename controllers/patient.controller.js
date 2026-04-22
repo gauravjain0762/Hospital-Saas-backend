@@ -306,12 +306,22 @@ export const getDoctorById = async (req, res) => {
 export const bookAppointment = async (req, res) => {
   try {
     const patientId = req.patient.id;
-    const { doctorId, date } = req.body;
 
-    if (!doctorId || !date) {
+    const {
+      doctorId,
+      date,
+      time,
+      fullName,
+      email,
+      phone,
+      problem,
+      paymentMethod,
+    } = req.body;
+
+    if (!doctorId || !date || !fullName || !phone) {
       return res.status(400).json({
         success: false,
-        message: "doctorId and date required",
+        message: "Required fields missing",
       });
     }
 
@@ -328,21 +338,22 @@ export const bookAppointment = async (req, res) => {
       });
     }
 
-    const existingAppointment = await Appointment.findOne({
+    // One booking per day per doctor
+    const existing = await Appointment.findOne({
       doctorId,
       patientId,
       date,
-      status: { $ne: "cancelled" }
+      status: { $ne: "cancelled" },
     });
 
-    if (existingAppointment) {
-      return res.status(400).json({ 
+    if (existing) {
+      return res.status(400).json({
         success: false,
         message: "You already booked this doctor for this date",
       });
     }
 
-    // Queue for today
+    // Queue
     let queue = await Queue.findOne({ doctorId, date });
 
     if (!queue) {
@@ -354,11 +365,10 @@ export const bookAppointment = async (req, res) => {
       });
     }
 
-    // max 500 tokens
     if (queue.lastIssuedToken >= 500) {
       return res.status(400).json({
         success: false,
-        message: "Today's booking limit reached",
+        message: "Daily booking limit reached",
       });
     }
 
@@ -366,7 +376,7 @@ export const bookAppointment = async (req, res) => {
     queue.lastIssuedToken = tokenNumber;
     await queue.save();
 
-    // Follow-up logic
+    // Followup logic
     let consultationFee = doctor.clinic?.consultationFee || 0;
     let isFollowup = false;
 
@@ -380,35 +390,63 @@ export const bookAppointment = async (req, res) => {
         consultationFee: { $gt: 0 },
       }).sort({ completedAt: -1 });
 
-      if (lastCompleted && lastCompleted.completedAt) {
-        const lastDate = new Date(lastCompleted.completedAt);
-        const expiry = new Date(lastDate);
+      if (lastCompleted?.completedAt) {
+        const expiry = new Date(lastCompleted.completedAt);
         expiry.setDate(expiry.getDate() + freeDays);
 
-        const bookingDate = new Date(date);
-
-        if (bookingDate <= expiry) {
+        if (new Date(date) <= expiry) {
           consultationFee = 0;
           isFollowup = true;
         }
       }
     }
 
+    // Payment status
+    let paymentStatus = "cash_pending";
+
+    if (paymentMethod === "online") {
+      paymentStatus = "pending";
+    }
+
+    // Save booking
     const appointment = await Appointment.create({
       doctorId,
       patientId,
       date,
+      time,
       tokenNumber,
+      fullName,
+      email,
+      phone,
+      problem,
+      paymentMethod,
+      paymentStatus,
       consultationFee,
       isFollowup,
+    });
+
+    // ETA Logic (10 min each token ahead)
+    const patientsAhead = tokenNumber - queue.currentToken;
+    const mins = patientsAhead * 10;
+
+    const eta = new Date();
+    eta.setMinutes(eta.getMinutes() + mins);
+
+    const expectedTime = eta.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
     });
 
     res.status(201).json({
       success: true,
       message: "Appointment booked successfully",
       tokenNumber,
+      waitList: tokenNumber,
+      expectedTime,
       consultationFee,
       isFollowup,
+      paymentMethod,
+      paymentStatus,
       appointment,
     });
 

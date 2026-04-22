@@ -14,27 +14,40 @@ const appointmentSchema = new mongoose.Schema(
     required: true,
   },
 
-  date: {
-    type: String,
-    required: true, // YYYY-MM-DD
-  },
+  date: String,
+  time: String,
 
   tokenNumber: Number,
+
+  fullName: String,
+  email: String,
+  phone: String,
+
+  problem: String,
+
+  paymentMethod: {
+    type: String,
+    enum: ["online", "cash"],
+    default: "cash",
+  },
+
+  paymentStatus: {
+    type: String,
+    enum: ["pending", "paid", "cash_pending"],
+    default: "pending",
+  },
+
+  consultationFee: Number,
+
+  isFollowup: {
+    type: Boolean,
+    default: false,
+  },
 
   status: {
     type: String,
     enum: ["waiting", "in_progress", "completed", "cancelled"],
     default: "waiting",
-  },
-
-  consultationFee: {
-    type: Number,
-    default: 0,
-  },
-
-  isFollowup: {
-    type: Boolean,
-    default: false,
   },
 
   completedAt: Date,
