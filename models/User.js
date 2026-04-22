@@ -60,6 +60,9 @@ rejections: {
       pincode: String,
       consultationFee: Number,
       freeFollowupDays: { type: Number, default: 0 },
+      rating: { type: Number, default: 0 },
+      latitude: { type: Number, default: null },
+      longitude: { type: Number, default: null },
       photos: [String],
     },
 
