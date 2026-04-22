@@ -787,61 +787,77 @@ export const getDoctorSlots = async (req, res) => {
   }
 };
 
-
 export const getAppointmentPreview = async (req, res) => {
   try {
     const { doctorId } = req.params;
     const { date } = req.query;
 
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        message: "Date is required"
+      });
+    }
+
     const doctor = await User.findById(doctorId);
 
-    if (!doctor) {
+    if (!doctor || doctor.role !== "doctor") {
       return res.status(404).json({
         success: false,
         message: "Doctor not found"
       });
     }
 
-    const bookings = await Appointment.find({
+    // total bookings for selected date
+    const totalBookings = await Appointment.countDocuments({
       doctorId,
       date,
       status: { $ne: "cancelled" }
     });
 
-    const currentToken = doctor.currentToken || 0;
+    // completed tokens for selected date
+    const doneBookings = await Appointment.countDocuments({
+      doctorId,
+      date,
+      status: "done"
+    });
 
-    const yourToken = bookings.length + 1;
+    const currentToken = doneBookings;
+    const yourToken = totalBookings + 1;
 
-    const AVG_TIME = 5;
+    const avgMinutes = 5;
 
     const patientsBeforeYou = yourToken - currentToken - 1;
 
-    const waitMinutes = Math.max(0, patientsBeforeYou * AVG_TIME);
+    const waitMinutes = Math.max(0, patientsBeforeYou * avgMinutes);
 
     const now = new Date();
 
-    const estimatedTimeDate = new Date(now.getTime() + waitMinutes * 60000);
+    const estimatedDate = new Date(
+      now.getTime() + waitMinutes * 60000
+    );
 
-    const estimatedTime = estimatedTimeDate.toLocaleTimeString([], {
+    const estimatedTime = estimatedDate.toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit"
     });
 
     res.json({
       success: true,
+      date,
       doctorName: doctor.name,
       currentToken,
       yourToken,
-      estimatedTime,
       estimatedWaitMinutes: waitMinutes,
+      estimatedTime,
       consultationFee: doctor.clinic?.consultationFee || 0,
       freeFollowupDays: doctor.clinic?.freeFollowupDays || 0
     });
 
-  } catch (err) {
+  } catch (error) {
     res.status(500).json({
       success: false,
-      message: err.message
+      message: error.message
     });
   }
 };
