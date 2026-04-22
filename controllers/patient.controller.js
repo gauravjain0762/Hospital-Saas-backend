@@ -801,35 +801,51 @@ export const getAppointmentPreview = async (req, res) => {
 
     const doctor = await User.findById(doctorId);
 
-    const totalBookings = await Appointment.countDocuments({
-      doctorId,
-      date,
-      slot,
-      status: { $ne: "cancelled" }
-    });
+    if (!doctor) {
+      return res.status(404).json({
+        success: false,
+        message: "Doctor not found"
+      });
+    }
 
-    const doneBookings = await Appointment.countDocuments({
+    // ✅ Current running token = highest DONE token
+    const lastDone = await Appointment.findOne({
       doctorId,
       date,
       slot,
       status: "done"
-    });
+    }).sort({ tokenNumber: -1 });
 
-    const currentToken = doneBookings;
-    const yourToken = totalBookings + 1;
+    const currentToken = lastDone ? lastDone.tokenNumber : 0;
 
+    // ✅ Next token = highest issued token + 1
+    const lastBooked = await Appointment.findOne({
+      doctorId,
+      date,
+      slot,
+      status: { $ne: "cancelled" }
+    }).sort({ tokenNumber: -1 });
+
+    const yourToken = lastBooked
+      ? lastBooked.tokenNumber + 1
+      : 1;
+
+    // ✅ Wait time
     const waitMinutes = Math.max(
       0,
       (yourToken - currentToken - 1) * 5
     );
 
-    const startTime = slot.split("-")[0].trim(); // 09:00
+    // ✅ Slot start time
+    const startTime = slot.split("-")[0].trim();
 
     const [hour, min] = startTime.split(":");
 
     const estimate = new Date(`${date}T${hour}:${min}:00`);
 
-    estimate.setMinutes(estimate.getMinutes() + waitMinutes);
+    estimate.setMinutes(
+      estimate.getMinutes() + waitMinutes
+    );
 
     res.json({
       success: true,
@@ -840,7 +856,8 @@ export const getAppointmentPreview = async (req, res) => {
         hour: "2-digit",
         minute: "2-digit"
       }),
-      freeFollowupDays: doctor.clinic?.freeFollowupDays || 0
+      freeFollowupDays:
+        doctor.clinic?.freeFollowupDays || 0
     });
 
   } catch (err) {
