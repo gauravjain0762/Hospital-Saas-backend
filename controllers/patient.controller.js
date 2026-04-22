@@ -619,3 +619,64 @@ export const saveFcmToken = async (req, res) => {
     });
   }
 };
+
+export const getAppointmentDetails = async (req, res) => {
+  try {
+    const patientId = req.patient.id;
+    const appointmentId = req.params.id;
+
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
+      patientId,
+    }).populate({
+      path: "doctorId",
+      select: "name clinic profilePhoto",
+    });
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found",
+      });
+    }
+
+    const doctor = appointment.doctorId;
+
+    const displayId =
+      "APT" + String(appointment._id).slice(-4).toUpperCase();
+
+    res.status(200).json({
+      success: true,
+      appointment: {
+        id: appointment._id,
+        displayId,
+        tokenNumber: appointment.tokenNumber,
+        date: appointment.date,
+        time: appointment.time,
+        status: appointment.status,
+
+        doctor: {
+          name: doctor?.name || "",
+          profilePhoto: doctor?.profilePhoto || "",
+        },
+
+        clinic: {
+          clinicName: doctor?.clinic?.clinicName || "",
+          address: doctor?.clinic?.address || "",
+          city: doctor?.clinic?.city || "",
+          googleBusinessLink:
+            doctor?.clinic?.googleBusinessLink || "",
+        },
+
+        reminderMessage:
+          "Please arrive 10 minutes before your appointment time",
+      },
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

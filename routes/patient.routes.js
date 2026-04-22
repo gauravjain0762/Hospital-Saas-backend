@@ -14,7 +14,8 @@ import {
     getMyAppointments,
     cancelAppointment,
     getQueueStatus,
-    saveFcmToken
+    saveFcmToken,
+    getAppointmentDetails,
 } from "../controllers/patient.controller.js";
 
 import patientAuth from "../middleware/patientAuth.js";
@@ -39,6 +40,8 @@ router.get("/doctors", getDoctors);
 router.get("/doctors/:id", getDoctorById);
 
 router.post("/book-appointment", patientAuth, bookAppointment);
+
+router.get("/appointment/:id", patientAuth, getAppointmentDetails);
 
 router.get("/my-appointments", patientAuth, getMyAppointments);
 
