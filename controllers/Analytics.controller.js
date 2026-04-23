@@ -1,4 +1,5 @@
 import Appointment from "../models/appointment.model.js";
+import User from "../models/User.js";
 import moment from "moment";
 
 // Helper: get date range based on filter
