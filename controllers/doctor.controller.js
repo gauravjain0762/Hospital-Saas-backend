@@ -1,5 +1,6 @@
 import Queue from "../models/queue.model.js";
 import Appointment from "../models/appointment.model.js";
+import User from "../models/User.js";
 import admin from "../utils/firebase.js";
 
 export const getTodayQueue = async (req, res) => {
@@ -282,5 +283,56 @@ export const markPaid = async (req, res) => {
       success: false,
       message: error.message,
     });
+  }
+};
+
+export const getDoctorProfile = async (req, res) => {
+  try {
+    const doctor = await User.findById(req.user._id).select(
+      "-password -otp -otpExpiry -bankDetails -documents"
+    );
+
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: "Doctor not found" });
+    }
+
+    res.status(200).json({ success: true, doctor });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getDoctorDashboard = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+    const today = new Date().toISOString().split("T")[0];
+
+    const appointments = await Appointment.find({
+      doctorId,
+      date: today,
+    });
+
+    const totalAppointments = appointments.length;
+
+    const revenue = appointments
+      .filter((a) => a.paymentStatus === "paid")
+      .reduce((sum, a) => sum + (a.consultationFee || 0), 0);
+
+    const completed = appointments.filter((a) => a.status === "completed").length;
+    const waiting = appointments.filter((a) => a.status === "waiting").length;
+    const cancelled = appointments.filter((a) => a.status === "cancelled").length;
+
+    return res.status(200).json({
+      success: true,
+      date: today,
+      totalAppointments,
+      completed,
+      waiting,
+      cancelled,
+      revenue,
+    });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
