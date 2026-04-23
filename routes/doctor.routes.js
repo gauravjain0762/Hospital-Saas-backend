@@ -7,9 +7,11 @@ import { getTodayQueue,
     markPaid,
     getDoctorDashboard,
     getDoctorProfile,
+    getDoctorSlots,
  } from "../controllers/doctor.controller.js";
 
 router.get("/profile", protect, getDoctorProfile);
+router.get("/slots", protect, getDoctorSlots);
 router.get("/today-queue", protect, getTodayQueue);
 router.patch("/mark-done/:id", protect, markDone);
 router.patch("/mark-paid/:id", protect, markPaid);

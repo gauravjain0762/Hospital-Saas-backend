@@ -286,6 +286,46 @@ export const markPaid = async (req, res) => {
   }
 };
 
+export const getDoctorSlots = async (req, res) => {
+  try {
+    const doctor = await User.findById(req.user._id);
+
+    if (!doctor || doctor.role !== "doctor") {
+      return res.status(404).json({ success: false, message: "Doctor not found" });
+    }
+
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const today = new Date();
+    const next7Days = [];
+
+    for (let i = 0; i < 7; i++) {
+      const current = new Date();
+      current.setDate(today.getDate() + i);
+      const dayName = dayNames[current.getDay()];
+
+      const doctorDay = doctor.availability.find(
+        (item) => item.day === dayName && item.isActive
+      );
+
+      if (doctorDay) {
+        next7Days.push({
+          date: current.toISOString().split("T")[0],
+          day: dayName,
+          availableSlots: doctorDay.slots.map((slot) => `${slot.startTime} - ${slot.endTime}`),
+        });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      doctorName: doctor.name,
+      slots: next7Days,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const getDoctorProfile = async (req, res) => {
   try {
     const doctor = await User.findById(req.user._id).select(
