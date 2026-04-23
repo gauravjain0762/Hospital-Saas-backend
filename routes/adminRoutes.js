@@ -5,6 +5,8 @@ import {
     rejectUser,
     getAllUsers,
     toggleDoctorActiveStatus,
+    deleteDoctor,
+    deleteDoctors,
 } from "../controllers/adminController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -31,6 +33,12 @@ router.post("/approve/:id", approveUser);
 router.post("/reject/:id", rejectUser);
 
 router.patch("/toggle-status/:id", toggleDoctorActiveStatus);
+
+// delete single doctor
+router.delete("/delete-doctor/:id", deleteDoctor);
+ 
+// delete multiple doctors
+router.delete("/delete-doctors", deleteDoctors);
 
 
 

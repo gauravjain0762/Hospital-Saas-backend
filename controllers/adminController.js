@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import Appointment from "../models/appointment.model.js";
 import { sendApprovalEmail, sendRejectionEmail } from "../utils/sendEmail.js";
 
 //get pending users
@@ -141,6 +142,42 @@ export const toggleDoctorActiveStatus = async (req, res) => {
       message: `Doctor marked as ${activeStatus}`,
       activeStatus: user.activeStatus,
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// DELETE single doctor
+export const deleteDoctor = async (req, res) => {
+  try {
+    const { id } = req.params;
+ 
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ success: false, message: "Doctor not found" });
+ 
+    // delete doctor + all their appointments
+    await Appointment.deleteMany({ doctorId: id });
+    await User.findByIdAndDelete(id);
+ 
+    res.json({ success: true, message: "Doctor and their appointments deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+ 
+// DELETE multiple doctors
+export const deleteDoctors = async (req, res) => {
+  try {
+    const { ids } = req.body;
+ 
+    if (!ids || !Array.isArray(ids) || ids.length === 0)
+      return res.status(400).json({ success: false, message: "ids array is required" });
+ 
+    // delete all their appointments first
+    await Appointment.deleteMany({ doctorId: { $in: ids } });
+    await User.deleteMany({ _id: { $in: ids } });
+ 
+    res.json({ success: true, message: `${ids.length} doctor(s) deleted successfully`, deletedCount: ids.length });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
