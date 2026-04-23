@@ -9,6 +9,7 @@ import {
     deleteDoctors,
     setAppVersion,
     getAppVersions,
+    updateAppVersion,
 } from "../controllers/adminController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -45,5 +46,6 @@ router.delete("/delete-doctors", deleteDoctors);
 // app version management
 router.post("/app-version", setAppVersion);
 router.get("/app-version", getAppVersions);
+router.patch("/app-version/:appType/:platform", updateAppVersion);
 
 export default router;

@@ -21,28 +21,32 @@ export const getTodayQueue = async (req, res) => {
       };
     }
 
-  const { slot } = req.query;
+  const { slot, status } = req.query;
 
-const appointmentQuery = {
-  doctorId,
-  date: today,
-  status: "waiting",
-};
+  const validStatuses = ["waiting", "completed", "cancelled", "in_progress"];
+  const resolvedStatus = validStatuses.includes(status) ? status : "waiting";
 
-if (slot) {
-  appointmentQuery.slot = slot;
-}
+  const appointmentQuery = {
+    doctorId,
+    date: today,
+    status: resolvedStatus,
+  };
 
-const appointments = await Appointment.find(appointmentQuery)
-  .populate("patientId", "fullName mobile profilePhoto")
-  .sort({ tokenNumber: 1 });
+  if (slot) {
+    appointmentQuery.slot = slot;
+  }
+
+  const appointments = await Appointment.find(appointmentQuery)
+    .populate("patientId", "fullName mobile profilePhoto")
+    .sort({ tokenNumber: 1 });
 
     res.status(200).json({
       success: true,
       date: today,
+      status: resolvedStatus,
       currentToken: queue.currentToken,
       lastIssuedToken: queue.lastIssuedToken,
-      waitingCount: appointments.length,
+      count: appointments.length,
       appointments,
     });
 

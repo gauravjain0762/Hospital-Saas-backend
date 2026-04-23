@@ -198,7 +198,7 @@ export const deleteDoctors = async (req, res) => {
   }
 };
 
-// POST /api/admin/app-version — create or update version for a platform
+// POST /api/admin/app-version — create (first-time setup for a platform)
 export const setAppVersion = async (req, res) => {
   try {
     const { appType, platform, latestVersion, minVersion, forceUpdate, storeUrl, releaseNotes } = req.body;
@@ -215,6 +215,31 @@ export const setAppVersion = async (req, res) => {
       { latestVersion, minVersion, forceUpdate, storeUrl, releaseNotes },
       { upsert: true, new: true, runValidators: true }
     );
+
+    res.status(200).json({ success: true, message: "App version saved", version });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PATCH /api/admin/app-version/:appType/:platform — update existing version (used by admin panel)
+export const updateAppVersion = async (req, res) => {
+  try {
+    const { appType, platform } = req.params;
+    const { latestVersion, minVersion, forceUpdate, storeUrl, releaseNotes } = req.body;
+
+    const version = await AppVersion.findOneAndUpdate(
+      { appType, platform },
+      { latestVersion, minVersion, forceUpdate, storeUrl, releaseNotes },
+      { new: true, runValidators: true }
+    );
+
+    if (!version) {
+      return res.status(404).json({
+        success: false,
+        message: `No version found for ${appType}/${platform}. Create it first via POST /api/admin/app-version`,
+      });
+    }
 
     res.status(200).json({ success: true, message: "App version updated", version });
   } catch (error) {
