@@ -24,10 +24,24 @@ export const getAllUsers = async (req, res) => {
             role: { $ne: "admin" },
         }).select("-password");
 
-        res.json({
-            success: true,
-            users,
+        const doctorIds = users.map((u) => u._id);
+
+        const appointmentCounts = await Appointment.aggregate([
+            { $match: { doctorId: { $in: doctorIds } } },
+            { $group: { _id: "$doctorId", total: { $sum: 1 } } },
+        ]);
+
+        const countMap = {};
+        appointmentCounts.forEach((a) => {
+            countMap[a._id.toString()] = a.total;
         });
+
+        const usersWithCounts = users.map((u) => ({
+            ...u.toObject(),
+            totalAppointments: countMap[u._id.toString()] || 0,
+        }));
+
+        res.json({ success: true, users: usersWithCounts });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
