@@ -1,6 +1,7 @@
 import Queue from "../models/queue.model.js";
 import Appointment from "../models/appointment.model.js";
 import User from "../models/User.js";
+import Report from "../models/report.model.js";
 import admin from "../utils/firebase.js";
 
 export const getTodayQueue = async (req, res) => {
@@ -376,6 +377,74 @@ export const getDoctorDashboard = async (req, res) => {
       revenue,
     });
 
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/doctor/reports
+export const submitReport = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+    const { subject, category, priority, description } = req.body;
+
+    if (!subject || !category || !priority) {
+      return res.status(400).json({
+        success: false,
+        message: "subject, category and priority are required",
+      });
+    }
+
+    const report = await Report.create({
+      doctorId,
+      subject,
+      category,
+      priority,
+      description,
+    });
+
+    await report.populate("doctorId", "name");
+
+    res.status(201).json({
+      success: true,
+      message: "Report submitted successfully",
+      report: {
+        ticketId: report.ticketId,
+        userName: report.doctorId.name,
+        subject: report.subject,
+        category: report.category,
+        priority: report.priority,
+        status: report.status,
+        description: report.description,
+        createdAt: report.createdAt,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/doctor/reports
+export const getMyReports = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+
+    const reports = await Report.find({ doctorId })
+      .populate("doctorId", "name")
+      .sort({ createdAt: -1 });
+
+    const formatted = reports.map((r) => ({
+      ticketId: r.ticketId,
+      userName: r.doctorId.name,
+      subject: r.subject,
+      category: r.category,
+      priority: r.priority,
+      status: r.status,
+      description: r.description,
+      createdAt: r.createdAt,
+    }));
+
+    res.status(200).json({ success: true, reports: formatted });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
