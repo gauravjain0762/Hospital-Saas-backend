@@ -7,6 +7,8 @@ import {
     toggleDoctorActiveStatus,
     deleteDoctor,
     deleteDoctors,
+    setAppVersion,
+    getAppVersions,
 } from "../controllers/adminController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -40,6 +42,8 @@ router.delete("/delete-doctor/:id", deleteDoctor);
 // delete multiple doctors
 router.delete("/delete-doctors", deleteDoctors);
 
-
+// app version management
+router.post("/app-version", setAppVersion);
+router.get("/app-version", getAppVersions);
 
 export default router;

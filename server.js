@@ -11,6 +11,7 @@ import patientRoutes from "./routes/patient.routes.js";
 import doctorRoutes from "./routes/doctor.routes.js";
 import User from "./models/User.js";
 import analyticsRoutes from "./routes/Analytics.routes.js";
+import { checkAppVersion } from "./controllers/adminController.js";
 
 
 dotenv.config();
@@ -34,6 +35,9 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/patient", patientRoutes);
 app.use("/api/doctor", doctorRoutes);
 app.use("/api/admin/analytics", analyticsRoutes);
+
+// public — no auth needed, called by mobile apps on launch
+app.get("/api/app-version/:appType/:platform", checkAppVersion);
 
 // global error
 app.use((err, req, res, next) => {

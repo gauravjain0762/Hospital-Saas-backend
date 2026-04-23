@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import Appointment from "../models/appointment.model.js";
+import AppVersion from "../models/appVersion.model.js";
 import { sendApprovalEmail, sendRejectionEmail } from "../utils/sendEmail.js";
 
 //get pending users
@@ -194,5 +195,65 @@ export const deleteDoctors = async (req, res) => {
     res.json({ success: true, message: `${ids.length} doctor(s) deleted successfully`, deletedCount: ids.length });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/admin/app-version — create or update version for a platform
+export const setAppVersion = async (req, res) => {
+  try {
+    const { appType, platform, latestVersion, minVersion, forceUpdate, storeUrl, releaseNotes } = req.body;
+
+    if (!appType || !platform || !latestVersion || !minVersion) {
+      return res.status(400).json({
+        success: false,
+        message: "appType, platform, latestVersion and minVersion are required",
+      });
+    }
+
+    const version = await AppVersion.findOneAndUpdate(
+      { appType, platform },
+      { latestVersion, minVersion, forceUpdate, storeUrl, releaseNotes },
+      { upsert: true, new: true, runValidators: true }
+    );
+
+    res.status(200).json({ success: true, message: "App version updated", version });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/admin/app-version — list all versions
+export const getAppVersions = async (req, res) => {
+  try {
+    const versions = await AppVersion.find().sort({ appType: 1, platform: 1 });
+    res.status(200).json({ success: true, versions });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/app-version/:appType/:platform — public, called by mobile apps
+export const checkAppVersion = async (req, res) => {
+  try {
+    const { appType, platform } = req.params;
+
+    const version = await AppVersion.findOne({ appType, platform });
+
+    if (!version) {
+      return res.status(404).json({ success: false, message: "Version info not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      appType: version.appType,
+      platform: version.platform,
+      latestVersion: version.latestVersion,
+      minVersion: version.minVersion,
+      forceUpdate: version.forceUpdate,
+      storeUrl: version.storeUrl,
+      releaseNotes: version.releaseNotes,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
