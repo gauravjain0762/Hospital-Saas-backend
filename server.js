@@ -68,11 +68,13 @@ io.on("connection", (socket) => {
 
   // patient joins doctor room
   socket.on("joinDoctorQueue", (doctorId) => {
-    console.log(`[SOCKET] joinDoctorQueue received | socketId=${socket.id} | doctorId=${doctorId} | type=${typeof doctorId}`);
+    console.log(`[SOCKET] joinDoctorQueue received | socketId=${socket.id} | doctorId=${JSON.stringify(doctorId)} | type=${typeof doctorId}`);
     const room = `doctor_${doctorId}`;
     socket.join(room);
     const rooms = Array.from(socket.rooms);
     console.log(`[SOCKET] Socket joined room=${room} | allRooms=${JSON.stringify(rooms)}`);
+    socket.emit("joinedRoom", { room, status: "joined", receivedDoctorId: JSON.stringify(doctorId) });
+    console.log(`[SOCKET] Sent joinedRoom confirmation to socketId=${socket.id} | room=${room}`);
   });
 
   socket.on("disconnect", (reason) => {
