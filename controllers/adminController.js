@@ -8,10 +8,22 @@ import { sendApprovalEmail, sendRejectionEmail } from "../utils/sendEmail.js";
 
 export const getPendingUsers = async (req, res) => {
     try {
-        const users = await User.find({ status: "pending" }).select("-password");
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = 10;
+        const skip = (page - 1) * limit;
+
+        const total = await User.countDocuments({ status: "pending" });
+
+        const users = await User.find({ status: "pending" })
+            .select("-password")
+            .skip(skip)
+            .limit(limit);
 
         res.json({
             success: true,
+            total,
+            page,
+            totalPages: Math.ceil(total / limit),
             users,
         });
     } catch (err) {
@@ -21,10 +33,22 @@ export const getPendingUsers = async (req, res) => {
 
 export const getAllUsers = async (req, res) => {
     try {
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = 10;
+        const skip = (page - 1) * limit;
+
+        const total = await User.countDocuments({
+            status: "approved",
+            role: { $ne: "admin" },
+        });
+
         const users = await User.find({
             status: "approved",
             role: { $ne: "admin" },
-        }).select("-password");
+        })
+            .select("-password")
+            .skip(skip)
+            .limit(limit);
 
         const doctorIds = users.map((u) => u._id);
 
@@ -43,7 +67,13 @@ export const getAllUsers = async (req, res) => {
             totalAppointments: countMap[u._id.toString()] || 0,
         }));
 
-        res.json({ success: true, users: usersWithCounts });
+        res.json({
+            success: true,
+            total,
+            page,
+            totalPages: Math.ceil(total / limit),
+            users: usersWithCounts,
+        });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
