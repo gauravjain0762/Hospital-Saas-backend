@@ -64,18 +64,19 @@ app.set("io", io);
 
 // socket connection
 io.on("connection", (socket) => {
-  console.log("Socket connected:", socket.id);
+  console.log(`[SOCKET] New connection | socketId=${socket.id}`);
 
   // patient joins doctor room
   socket.on("joinDoctorQueue", (doctorId) => {
+    console.log(`[SOCKET] joinDoctorQueue received | socketId=${socket.id} | doctorId=${doctorId} | type=${typeof doctorId}`);
     const room = `doctor_${doctorId}`;
     socket.join(room);
-
-    console.log(`Socket ${socket.id} joined ${room}`);
+    const rooms = Array.from(socket.rooms);
+    console.log(`[SOCKET] Socket joined room=${room} | allRooms=${JSON.stringify(rooms)}`);
   });
 
-  socket.on("disconnect", () => {
-    console.log("Socket disconnected:", socket.id);
+  socket.on("disconnect", (reason) => {
+    console.log(`[SOCKET] Disconnected | socketId=${socket.id} | reason=${reason}`);
   });
 });
 

@@ -121,12 +121,13 @@ export const nextToken = async (req, res) => {
 
     // socket emit
     const io = req.app.get("io");
-
-    io.to(`doctor_${doctorId}`).emit("tokenUpdated", {
-      doctorId,
-      currentToken: queue.currentToken,
-      lastIssuedToken: queue.lastIssuedToken,
-    });
+    const room = `doctor_${doctorId}`;
+    const payload = { doctorId, currentToken: queue.currentToken, lastIssuedToken: queue.lastIssuedToken };
+    console.log(`[SOCKET] nextToken emit | room=${room} | payload=${JSON.stringify(payload)}`);
+    const roomSockets = await io.in(room).allSockets();
+    console.log(`[SOCKET] Sockets in room ${room}: ${roomSockets.size}`);
+    io.to(room).emit("tokenUpdated", payload);
+    console.log(`[SOCKET] tokenUpdated emitted | room=${room}`);
 
     // 🔥 FIREBASE NOTIFICATION LOGIC
     const notifyToken = queue.currentToken + 5;
@@ -236,12 +237,13 @@ export const markDone = async (req, res) => {
 
     // socket emit
     const io = req.app.get("io");
-
-    io.to(`doctor_${doctorId}`).emit("tokenUpdated", {
-      doctorId,
-      currentToken: queue.currentToken,
-      lastIssuedToken: queue.lastIssuedToken,
-    });
+    const room = `doctor_${doctorId}`;
+    const payload = { doctorId, currentToken: queue.currentToken, lastIssuedToken: queue.lastIssuedToken };
+    console.log(`[SOCKET] markDone emit | room=${room} | payload=${JSON.stringify(payload)}`);
+    const roomSockets = await io.in(room).allSockets();
+    console.log(`[SOCKET] Sockets in room ${room}: ${roomSockets.size}`);
+    io.to(room).emit("tokenUpdated", payload);
+    console.log(`[SOCKET] tokenUpdated emitted | room=${room}`);
 
     res.status(200).json({
       success: true,
