@@ -8,7 +8,7 @@ export const getTodayQueue = async (req, res) => {
   try {
     const doctorId = req.user._id;
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = req.query.date || new Date().toISOString().split("T")[0];
 
     let queue = await Queue.findOne({
       doctorId,
