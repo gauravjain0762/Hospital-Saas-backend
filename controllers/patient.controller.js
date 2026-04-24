@@ -487,6 +487,7 @@ export const getMyAppointments = async (req, res) => {
         time: item.time,
 
         doctor: {
+          id: item.doctorId?._id || "",
           name: item.doctorId?.name || "",
           profilePhoto: item.doctorId?.profilePhoto || "",
 
