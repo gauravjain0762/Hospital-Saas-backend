@@ -346,6 +346,72 @@ export const getAllReports = async (req, res) => {
   }
 };
 
+// GET /api/admin/appointments — all appointments with filters
+export const getAllAppointments = async (req, res) => {
+  try {
+    const { status, paymentStatus, doctorName, page = 1 } = req.query;
+    const limit = 20;
+    const skip = (Math.max(1, parseInt(page)) - 1) * limit;
+
+    // if filtering by doctor name, find matching doctor IDs first
+    let doctorIdFilter = null;
+    if (doctorName) {
+      const doctors = await User.find({
+        name: { $regex: doctorName, $options: "i" },
+      }).select("_id");
+      doctorIdFilter = doctors.map((d) => d._id);
+    }
+
+    const query = {};
+    if (status) query.status = status;
+    if (paymentStatus) query.paymentStatus = paymentStatus;
+    if (doctorIdFilter) query.doctorId = { $in: doctorIdFilter };
+
+    const total = await Appointment.countDocuments(query);
+
+    const appointments = await Appointment.find(query)
+      .populate("doctorId", "name clinic")
+      .populate("patientId", "fullName mobile")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const result = appointments.map((a) => ({
+      id: a._id,
+      patient: {
+        name: a.fullName || a.patientId?.fullName || "",
+        mobile: a.phone || a.patientId?.mobile || "",
+      },
+      doctor: {
+        id: a.doctorId?._id || "",
+        name: a.doctorId?.name || "",
+      },
+      clinic: {
+        name: a.doctorId?.clinic?.clinicName || "",
+      },
+      date: a.date,
+      slot: a.slot,
+      tokenNumber: a.tokenNumber,
+      status: a.status,
+      paymentMethod: a.paymentMethod,
+      paymentStatus: a.paymentStatus,
+      consultationFee: a.consultationFee,
+      isFollowup: a.isFollowup,
+      createdAt: a.createdAt,
+    }));
+
+    res.status(200).json({
+      success: true,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / limit),
+      appointments: result,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // PATCH /api/admin/reports/:ticketId/status — open or close a ticket
 export const updateReportStatus = async (req, res) => {
   try {

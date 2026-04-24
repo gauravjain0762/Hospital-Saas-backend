@@ -12,6 +12,7 @@ import {
     updateAppVersion,
     getAllReports,
     updateReportStatus,
+    getAllAppointments,
 } from "../controllers/adminController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -49,6 +50,9 @@ router.delete("/delete-doctors", deleteDoctors);
 router.post("/app-version", setAppVersion);
 router.get("/app-version", getAppVersions);
 router.patch("/app-version/:appType/:platform", updateAppVersion);
+
+// appointments
+router.get("/appointments", getAllAppointments);
 
 // reports / tickets
 router.get("/reports", getAllReports);
