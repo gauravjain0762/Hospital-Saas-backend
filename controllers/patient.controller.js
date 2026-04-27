@@ -401,7 +401,14 @@ export const bookAppointment = async (req, res) => {
     let paymentStatus =
       paymentMethod === "online" ? "pending" : "cash_pending";
 
+    const docPrefix = (doctor.name || "XX").replace(/\s+/g, "").substring(0, 2).toUpperCase();
+    const patPrefix = (fullName || "XX").replace(/\s+/g, "").substring(0, 2).toUpperCase();
+    const mobPrefix = (phone || "00").substring(0, 2);
+    const unique = Math.random().toString(36).substring(2, 4).toUpperCase();
+    const appointmentId = `${docPrefix}${patPrefix}${mobPrefix}${unique}`;
+
     const appointment = await Appointment.create({
+      appointmentId,
       doctorId,
       patientId,
       date,
