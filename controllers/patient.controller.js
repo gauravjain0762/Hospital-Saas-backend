@@ -494,6 +494,7 @@ export const getMyAppointments = async (req, res) => {
         currentToken,
 
         date: item.date,
+        slot: item.slot,
         time: item.time,
 
         doctor: {
