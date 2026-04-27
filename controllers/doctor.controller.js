@@ -247,12 +247,16 @@ export const markDone = async (req, res) => {
 
     // notify patient who is 5 tokens ahead of completed token
     const notifyToken = appointment.tokenNumber + 5;
+    console.log(`[FCM] Searching for tokenNumber=${notifyToken} | date=${appointment.date} | doctorId=${doctorId}`);
+
     const targetAppointment = await Appointment.findOne({
       doctorId,
       date: appointment.date,
       tokenNumber: notifyToken,
       status: "waiting",
     }).populate("patientId");
+
+    console.log(`[FCM] targetAppointment found=${!!targetAppointment} | fcmToken=${targetAppointment?.patientId?.fcmToken || "EMPTY"}`);
 
     if (targetAppointment?.patientId?.fcmToken) {
       try {
@@ -263,9 +267,9 @@ export const markDone = async (req, res) => {
             body: `Current token is ${appointment.tokenNumber}. Your token is ${notifyToken}. Please reach clinic soon.`,
           },
         });
-        console.log("Notification sent to token:", notifyToken);
+        console.log(`[FCM] Notification sent to tokenNumber=${notifyToken}`);
       } catch (err) {
-        console.log("FCM send failed:", err.message);
+        console.log(`[FCM] Send failed for tokenNumber=${notifyToken}:`, err.message);
       }
     }
 
