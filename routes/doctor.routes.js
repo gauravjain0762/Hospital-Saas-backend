@@ -10,6 +10,7 @@ import { getTodayQueue,
     getDoctorSlots,
     submitReport,
     getMyReports,
+    toggleDutyStatus,
  } from "../controllers/doctor.controller.js";
 
 router.get("/profile", protect, getDoctorProfile);
@@ -18,6 +19,7 @@ router.get("/today-queue", protect, getTodayQueue);
 router.patch("/mark-done/:id", protect, markDone);
 router.patch("/mark-paid/:id", protect, markPaid);
 router.get("/dashboard", protect, getDoctorDashboard);
+router.patch("/duty-status", protect, toggleDutyStatus);
 router.post("/reports", protect, submitReport);
 router.get("/reports", protect, getMyReports);
 

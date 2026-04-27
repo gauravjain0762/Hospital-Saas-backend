@@ -426,6 +426,68 @@ export const submitReport = async (req, res) => {
   }
 };
 
+// PATCH /api/doctor/duty-status
+export const toggleDutyStatus = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+    const { activeStatus } = req.body;
+
+    if (!["active", "inactive"].includes(activeStatus)) {
+      return res.status(400).json({ success: false, message: "activeStatus must be 'active' or 'inactive'" });
+    }
+
+    const doctor = await User.findByIdAndUpdate(
+      doctorId,
+      { activeStatus },
+      { new: true }
+    );
+
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: "Doctor not found" });
+    }
+
+    // send notification to all today's waiting patients when doctor goes ON DUTY
+    if (activeStatus === "active") {
+      const today = new Date().toISOString().split("T")[0];
+
+      const appointments = await Appointment.find({
+        doctorId,
+        date: today,
+        status: "waiting",
+      }).populate("patientId", "fcmToken fullName");
+
+      const tokens = appointments
+        .map((a) => a.patientId?.fcmToken)
+        .filter(Boolean);
+
+      console.log(`[DUTY] Doctor ${doctor.name} went ON DUTY | today=${today} | patients to notify=${tokens.length}`);
+
+      for (const token of tokens) {
+        try {
+          await admin.messaging().send({
+            token,
+            notification: {
+              title: "Clinic is now open!",
+              body: `Dr. ${doctor.name} is now attending patients. Please be ready.`,
+            },
+          });
+        } catch (err) {
+          console.log(`[DUTY] FCM failed for token ${token}:`, err.message);
+        }
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `You are now ${activeStatus === "active" ? "ON DUTY" : "OFF DUTY"}`,
+      activeStatus: doctor.activeStatus,
+    });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // GET /api/doctor/reports
 export const getMyReports = async (req, res) => {
   try {
