@@ -39,12 +39,11 @@ const patientReportSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-patientReportSchema.pre("save", async function (next) {
+patientReportSchema.pre("save", async function () {
   if (!this.ticketId) {
     const count = await mongoose.model("PatientReport").countDocuments();
     this.ticketId = "PTKT" + String(count + 1).padStart(5, "0");
   }
-  next();
 });
 
 export default mongoose.model("PatientReport", patientReportSchema);
