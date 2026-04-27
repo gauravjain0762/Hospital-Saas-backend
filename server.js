@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import cors from "cors";
 import http from "http";
 import { Server } from "socket.io";
+import cron from "node-cron";
 
 import adminRoutes from "./routes/adminRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -81,6 +82,19 @@ io.on("connection", (socket) => {
     console.log(`[SOCKET] Disconnected | socketId=${socket.id} | reason=${reason}`);
   });
 });
+
+// auto reset all doctors to inactive at 11:59 PM every night
+cron.schedule("59 23 * * *", async () => {
+  try {
+    const result = await User.updateMany(
+      { activeStatus: "active" },
+      { activeStatus: "inactive" }
+    );
+    console.log(`[CRON] 11:59 PM IST — reset ${result.modifiedCount} doctor(s) to inactive`);
+  } catch (err) {
+    console.error("[CRON] Failed to reset doctor duty status:", err.message);
+  }
+}, { timezone: "Asia/Kolkata" });
 
 const startServer = async () => {
   try {
