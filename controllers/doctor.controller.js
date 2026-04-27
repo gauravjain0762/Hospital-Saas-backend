@@ -245,6 +245,30 @@ export const markDone = async (req, res) => {
     io.to(room).emit("tokenUpdated", payload);
     console.log(`[SOCKET] tokenUpdated emitted | room=${room}`);
 
+    // notify patient who is 5 tokens ahead of completed token
+    const notifyToken = appointment.tokenNumber + 5;
+    const targetAppointment = await Appointment.findOne({
+      doctorId,
+      date: appointment.date,
+      tokenNumber: notifyToken,
+      status: "waiting",
+    }).populate("patientId");
+
+    if (targetAppointment?.patientId?.fcmToken) {
+      try {
+        await admin.messaging().send({
+          token: targetAppointment.patientId.fcmToken,
+          notification: {
+            title: "Appointment Reminder",
+            body: `Current token is ${appointment.tokenNumber}. Your token is ${notifyToken}. Please reach clinic soon.`,
+          },
+        });
+        console.log("Notification sent to token:", notifyToken);
+      } catch (err) {
+        console.log("FCM send failed:", err.message);
+      }
+    }
+
     res.status(200).json({
       success: true,
       message: "Appointment completed",
