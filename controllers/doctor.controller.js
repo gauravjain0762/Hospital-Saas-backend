@@ -3,6 +3,8 @@ import Appointment from "../models/appointment.model.js";
 import User from "../models/User.js";
 import Report from "../models/report.model.js";
 import admin from "../utils/firebase.js";
+import xlsx from "xlsx";
+import jwt from "jsonwebtoken";
 
 export const getTodayQueue = async (req, res) => {
   try {
@@ -562,6 +564,77 @@ export const saveFcmToken = async (req, res) => {
     await User.findByIdAndUpdate(doctorId, { fcmToken });
 
     res.status(200).json({ success: true, message: "FCM token saved" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/doctor/export-report?filter=last7days&token=JWT
+export const exportReport = async (req, res) => {
+  try {
+    const { filter, startDate, endDate, token } = req.query;
+
+    if (!token) return res.status(401).json({ success: false, message: "Token required" });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const doctor = await User.findById(decoded.id).select("-password");
+    if (!doctor) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+    const doctorId = doctor._id;
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    let fromDate;
+
+    if (filter === "last7days") {
+      fromDate = new Date();
+      fromDate.setDate(fromDate.getDate() - 7);
+      fromDate.setHours(0, 0, 0, 0);
+    } else if (filter === "last30days") {
+      fromDate = new Date();
+      fromDate.setDate(fromDate.getDate() - 30);
+      fromDate.setHours(0, 0, 0, 0);
+    } else if (startDate && endDate) {
+      fromDate = new Date(startDate);
+      fromDate.setHours(0, 0, 0, 0);
+      today.setTime(new Date(endDate).setHours(23, 59, 59, 999));
+    } else {
+      return res.status(400).json({ success: false, message: "Provide filter or startDate & endDate" });
+    }
+
+    const appointments = await Appointment.find({
+      doctorId,
+      status: "completed",
+      completedAt: { $gte: fromDate, $lte: today },
+    })
+      .populate("patientId", "fullName mobile")
+      .sort({ completedAt: -1 });
+
+    const rows = appointments.map((a, i) => ({
+      "S.No": i + 1,
+      "Appointment ID": a.appointmentId || a._id.toString(),
+      "Token Number": a.tokenNumber,
+      "Patient Name": a.fullName || a.patientId?.fullName || "",
+      "Mobile": a.phone || a.patientId?.mobile || "",
+      "Date": a.date,
+      "Slot": a.slot,
+      "Consultation Fee": a.consultationFee,
+      "Payment Method": a.paymentMethod,
+      "Payment Status": a.paymentStatus,
+      "Follow-up": a.isFollowup ? "Yes" : "No",
+      "Completed At": a.completedAt ? new Date(a.completedAt).toLocaleString("en-IN") : "",
+    }));
+
+    const wb = xlsx.utils.book_new();
+    const ws = xlsx.utils.json_to_sheet(rows);
+    xlsx.utils.book_append_sheet(wb, ws, "Appointments");
+
+    const buffer = xlsx.write(wb, { type: "buffer", bookType: "xlsx" });
+
+    const filename = `report_${filter || `${startDate}_to_${endDate}`}.xlsx`;
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.send(buffer);
+
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
