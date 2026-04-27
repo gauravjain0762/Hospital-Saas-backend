@@ -567,6 +567,72 @@ export const saveFcmToken = async (req, res) => {
   }
 };
 
+// GET /api/doctor/completed-appointments
+export const getCompletedAppointments = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+    const { filter, startDate, endDate } = req.query;
+
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    let fromDate;
+
+    if (filter === "last7days") {
+      fromDate = new Date();
+      fromDate.setDate(fromDate.getDate() - 7);
+      fromDate.setHours(0, 0, 0, 0);
+    } else if (filter === "last30days") {
+      fromDate = new Date();
+      fromDate.setDate(fromDate.getDate() - 30);
+      fromDate.setHours(0, 0, 0, 0);
+    } else if (startDate && endDate) {
+      fromDate = new Date(startDate);
+      fromDate.setHours(0, 0, 0, 0);
+      today.setTime(new Date(endDate).setHours(23, 59, 59, 999));
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Provide filter=last7days or filter=last30days or startDate & endDate",
+      });
+    }
+
+    const appointments = await Appointment.find({
+      doctorId,
+      status: "completed",
+      completedAt: { $gte: fromDate, $lte: today },
+    })
+      .populate("patientId", "fullName mobile")
+      .sort({ completedAt: -1 });
+
+    const result = appointments.map((a) => ({
+      appointmentId: a.appointmentId || a._id,
+      patientName: a.fullName || a.patientId?.fullName || "",
+      mobile: a.phone || a.patientId?.mobile || "",
+      date: a.date,
+      slot: a.slot,
+      tokenNumber: a.tokenNumber,
+      consultationFee: a.consultationFee,
+      paymentMethod: a.paymentMethod,
+      paymentStatus: a.paymentStatus,
+      isFollowup: a.isFollowup,
+      completedAt: a.completedAt,
+    }));
+
+    const totalRevenue = result.reduce((sum, a) => sum + (a.consultationFee || 0), 0);
+
+    res.status(200).json({
+      success: true,
+      total: result.length,
+      totalRevenue,
+      appointments: result,
+    });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // GET /api/doctor/reports
 export const getMyReports = async (req, res) => {
   try {

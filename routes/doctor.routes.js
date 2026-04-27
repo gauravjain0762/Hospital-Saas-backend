@@ -13,6 +13,7 @@ import { getTodayQueue,
     toggleDutyStatus,
     saveFcmToken,
     setSecondaryPhone,
+    getCompletedAppointments,
  } from "../controllers/doctor.controller.js";
 
 router.get("/profile", protect, getDoctorProfile);
@@ -24,6 +25,7 @@ router.get("/dashboard", protect, getDoctorDashboard);
 router.patch("/duty-status", protect, toggleDutyStatus);
 router.patch("/save-fcm-token", protect, saveFcmToken);
 router.patch("/secondary-phone", protect, setSecondaryPhone);
+router.get("/completed-appointments", protect, getCompletedAppointments);
 router.post("/reports", protect, submitReport);
 router.get("/reports", protect, getMyReports);
 
