@@ -20,6 +20,10 @@ const userSchema = new mongoose.Schema(
     otpExpiry: Date,
     otpVerified: { type: Boolean, default: false },
 
+    secondaryPhone: { type: String, default: "" },
+    secondaryOtp: String,
+    secondaryOtpExpiry: Date,
+
     experience: Number,
 
     registrationStep: {

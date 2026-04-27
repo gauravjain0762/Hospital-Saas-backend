@@ -512,6 +512,30 @@ export const toggleDutyStatus = async (req, res) => {
   }
 };
 
+// PATCH /api/doctor/secondary-phone
+export const setSecondaryPhone = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+    const { secondaryPhone } = req.body;
+
+    if (!secondaryPhone) {
+      return res.status(400).json({ success: false, message: "secondaryPhone is required" });
+    }
+
+    // make sure this number isn't already a primary phone of another doctor
+    const conflict = await User.findOne({ phone: secondaryPhone });
+    if (conflict) {
+      return res.status(400).json({ success: false, message: "This number is already registered as a doctor account" });
+    }
+
+    await User.findByIdAndUpdate(doctorId, { secondaryPhone });
+
+    res.status(200).json({ success: true, message: "Secondary phone saved", secondaryPhone });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // PATCH /api/doctor/save-fcm-token
 export const saveFcmToken = async (req, res) => {
   try {

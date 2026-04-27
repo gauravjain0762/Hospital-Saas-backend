@@ -65,6 +65,18 @@ if (existingUser.status === "pending" && !hasRejections && existingUser.registra
       // ✅ Rejected with rejections — fall through, allow OTP
     }
 
+    // check if this is a secondary (receptionist) phone
+    const doctorWithSecondary = await User.findOne({ secondaryPhone: phone });
+    if (doctorWithSecondary) {
+      const fixedOtp = process.env.FIXED_OTP?.trim();
+      const otp = fixedOtp || generateOtp();
+      doctorWithSecondary.secondaryOtp = otp;
+      doctorWithSecondary.secondaryOtpExpiry = new Date(Date.now() + 5 * 60 * 1000);
+      await doctorWithSecondary.save();
+      console.log("Secondary OTP:", otp);
+      return res.json({ success: true, message: "OTP sent successfully", mode: "secondary" });
+    }
+
     const fixedOtp = process.env.FIXED_OTP?.trim();
     const otp = fixedOtp || generateOtp();
 
@@ -98,6 +110,43 @@ export const verifyOtp = async (req, res) => {
 
     if (otp === undefined || otp === null || String(otp).trim() === "") {
       return res.status(400).json({ message: "Please enter otp" });
+    }
+
+    // check if secondary phone login
+    const doctorWithSecondary = await User.findOne({ secondaryPhone: phone });
+    if (doctorWithSecondary) {
+      if (
+        String(doctorWithSecondary.secondaryOtp) !== String(otp) ||
+        doctorWithSecondary.secondaryOtpExpiry < new Date()
+      ) {
+        return res.status(400).json({ message: "Invalid or expired OTP" });
+      }
+
+      doctorWithSecondary.secondaryOtp = null;
+      await doctorWithSecondary.save();
+
+      const token = jwt.sign(
+        { id: doctorWithSecondary._id, isSecondary: true },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      return res.json({
+        success: true,
+        message: "OTP verified",
+        token,
+        isSecondary: true,
+        user: {
+          id: doctorWithSecondary._id,
+          name: doctorWithSecondary.name,
+          phone: doctorWithSecondary.phone,
+          secondaryPhone: doctorWithSecondary.secondaryPhone,
+          profilePhoto: doctorWithSecondary.profilePhoto,
+          status: doctorWithSecondary.status,
+          activeStatus: doctorWithSecondary.activeStatus,
+          registrationStep: doctorWithSecondary.registrationStep,
+        },
+      });
     }
 
     const user = await User.findOne({ phone });
@@ -136,7 +185,6 @@ export const verifyOtp = async (req, res) => {
         rejectedSteps: user.rejections?.map(r => r.step) || [],
       },
     });
-    //try
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
