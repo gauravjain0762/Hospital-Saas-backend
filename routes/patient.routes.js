@@ -1,9 +1,9 @@
 import express from "express";
 const router = express.Router();
 
-import { 
+import {
     sendOtp,
-    verifyOtp, 
+    verifyOtp,
     createProfile,
     getMyProfile,
     updateProfile,
@@ -18,6 +18,8 @@ import {
     getAppointmentDetails,
     getDoctorSlots,
     getAppointmentPreview,
+    submitReport,
+    getMyReports,
 } from "../controllers/patient.controller.js";
 
 import patientAuth from "../middleware/patientAuth.js";
@@ -57,5 +59,7 @@ router.get("/doctor-slots/:doctorId", getDoctorSlots);
 
 router.get("/appointment-preview/:doctorId", getAppointmentPreview);
 
+router.post("/report", patientAuth, submitReport);
+router.get("/reports", patientAuth, getMyReports);
 
 export default router; // ✅ IMPORTANT

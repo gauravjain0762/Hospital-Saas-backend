@@ -3,6 +3,7 @@ import Appointment from "../models/appointment.model.js";
 import AppVersion from "../models/appVersion.model.js";
 import Report from "../models/report.model.js";
 import LegalContent from "../models/legalContent.model.js";
+import PatientReport from "../models/patientReport.model.js";
 import { sendApprovalEmail, sendRejectionEmail } from "../utils/sendEmail.js";
 
 //get pending users
@@ -342,6 +343,75 @@ export const getAllReports = async (req, res) => {
     }));
 
     res.status(200).json({ success: true, total: formatted.length, reports: formatted });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/admin/patient-reports
+export const getAllPatientReports = async (req, res) => {
+  try {
+    const { status, priority, category } = req.query;
+
+    const filter = {};
+    if (status) filter.status = status;
+    if (priority) filter.priority = priority;
+    if (category) filter.category = category;
+
+    const reports = await PatientReport.find(filter)
+      .populate("patientId", "fullName mobile")
+      .sort({ createdAt: -1 });
+
+    const formatted = reports.map((r) => ({
+      ticketId: r.ticketId,
+      patientName: r.patientId?.fullName || "",
+      mobile: r.patientId?.mobile || "",
+      subject: r.subject,
+      category: r.category,
+      priority: r.priority,
+      status: r.status,
+      description: r.description,
+      createdAt: r.createdAt,
+    }));
+
+    res.status(200).json({ success: true, total: formatted.length, reports: formatted });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PATCH /api/admin/patient-reports/:ticketId/status
+export const updatePatientReportStatus = async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const { status } = req.body;
+
+    if (!["open", "closed"].includes(status)) {
+      return res.status(400).json({ success: false, message: "status must be 'open' or 'closed'" });
+    }
+
+    const report = await PatientReport.findOneAndUpdate(
+      { ticketId },
+      { status },
+      { new: true }
+    ).populate("patientId", "fullName");
+
+    if (!report) {
+      return res.status(404).json({ success: false, message: "Report not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Ticket ${ticketId} marked as ${status}`,
+      report: {
+        ticketId: report.ticketId,
+        patientName: report.patientId?.fullName || "",
+        subject: report.subject,
+        category: report.category,
+        priority: report.priority,
+        status: report.status,
+      },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

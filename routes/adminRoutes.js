@@ -15,6 +15,8 @@ import {
     getAllAppointments,
     setLegalContent,
     getLegalContent,
+    getAllPatientReports,
+    updatePatientReportStatus,
 } from "../controllers/adminController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -60,8 +62,12 @@ router.get("/appointments", getAllAppointments);
 router.patch("/legal/:type", setLegalContent);
 router.get("/legal/:type", getLegalContent);
 
-// reports / tickets
+// doctor reports / tickets
 router.get("/reports", getAllReports);
 router.patch("/reports/:ticketId/status", updateReportStatus);
+
+// patient reports / tickets
+router.get("/patient-reports", getAllPatientReports);
+router.patch("/patient-reports/:ticketId/status", updatePatientReportStatus);
 
 export default router;
