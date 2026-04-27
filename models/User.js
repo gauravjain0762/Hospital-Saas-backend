@@ -39,6 +39,11 @@ const userSchema = new mongoose.Schema(
   default: "inactive",
 },
 
+    fcmToken: {
+      type: String,
+      default: "",
+    },
+
 rejections: {
   type: [
     {

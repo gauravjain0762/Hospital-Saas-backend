@@ -11,6 +11,7 @@ import { getTodayQueue,
     submitReport,
     getMyReports,
     toggleDutyStatus,
+    saveFcmToken,
  } from "../controllers/doctor.controller.js";
 
 router.get("/profile", protect, getDoctorProfile);
@@ -20,6 +21,7 @@ router.patch("/mark-done/:id", protect, markDone);
 router.patch("/mark-paid/:id", protect, markPaid);
 router.get("/dashboard", protect, getDoctorDashboard);
 router.patch("/duty-status", protect, toggleDutyStatus);
+router.patch("/save-fcm-token", protect, saveFcmToken);
 router.post("/reports", protect, submitReport);
 router.get("/reports", protect, getMyReports);
 
