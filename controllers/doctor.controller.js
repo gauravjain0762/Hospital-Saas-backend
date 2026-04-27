@@ -518,19 +518,22 @@ export const setSecondaryPhone = async (req, res) => {
     const doctorId = req.user._id;
     const { secondaryPhone } = req.body;
 
-    if (!secondaryPhone) {
+    if (secondaryPhone === undefined) {
       return res.status(400).json({ success: false, message: "secondaryPhone is required" });
     }
 
-    // make sure this number isn't already a primary phone of another doctor
-    const conflict = await User.findOne({ phone: secondaryPhone });
-    if (conflict) {
-      return res.status(400).json({ success: false, message: "This number is already registered as a doctor account" });
+    // if removing, skip conflict check
+    if (secondaryPhone !== "") {
+      const conflict = await User.findOne({ phone: secondaryPhone });
+      if (conflict) {
+        return res.status(400).json({ success: false, message: "This number is already registered as a doctor account" });
+      }
     }
 
     await User.findByIdAndUpdate(doctorId, { secondaryPhone });
 
-    res.status(200).json({ success: true, message: "Secondary phone saved", secondaryPhone });
+    const message = secondaryPhone === "" ? "Secondary phone removed" : "Secondary phone saved";
+    res.status(200).json({ success: true, message, secondaryPhone });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
