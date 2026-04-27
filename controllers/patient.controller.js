@@ -431,10 +431,14 @@ export const bookAppointment = async (req, res) => {
 
     // emit to doctor's room so dashboard updates in real-time
     const io = req.app.get("io");
-    io.to(`doctor_${doctorId}`).emit("dashboardUpdated", {
+    const room = `doctor_${doctorId}`;
+    const socketsInRoom = await io.in(room).allSockets();
+    console.log(`[SOCKET] dashboardUpdated | room=${room} | socketsInRoom=${socketsInRoom.size} | lastIssuedToken=${queue.lastIssuedToken}`);
+    io.to(room).emit("dashboardUpdated", {
       doctorId,
       lastIssuedToken: queue.lastIssuedToken,
     });
+    console.log(`[SOCKET] dashboardUpdated emitted | room=${room}`);
 
     const patientsAhead = tokenNumber - queue.currentToken;
     const mins = patientsAhead * 10;
