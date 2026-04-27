@@ -13,6 +13,8 @@ import {
     getAllReports,
     updateReportStatus,
     getAllAppointments,
+    setLegalContent,
+    getLegalContent,
 } from "../controllers/adminController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -53,6 +55,10 @@ router.patch("/app-version/:appType/:platform", updateAppVersion);
 
 // appointments
 router.get("/appointments", getAllAppointments);
+
+// legal content (admin protected)
+router.patch("/legal/:type", setLegalContent);
+router.get("/legal/:type", getLegalContent);
 
 // reports / tickets
 router.get("/reports", getAllReports);

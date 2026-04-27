@@ -2,6 +2,7 @@ import User from "../models/User.js";
 import Appointment from "../models/appointment.model.js";
 import AppVersion from "../models/appVersion.model.js";
 import Report from "../models/report.model.js";
+import LegalContent from "../models/legalContent.model.js";
 import { sendApprovalEmail, sendRejectionEmail } from "../utils/sendEmail.js";
 
 //get pending users
@@ -341,6 +342,52 @@ export const getAllReports = async (req, res) => {
     }));
 
     res.status(200).json({ success: true, total: formatted.length, reports: formatted });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PATCH /api/admin/legal/:type — set terms or privacy policy
+export const setLegalContent = async (req, res) => {
+  try {
+    const { type } = req.params;
+    const { content } = req.body;
+
+    const validTypes = ["terms_doctor", "terms_patient", "privacy_policy"];
+    if (!validTypes.includes(type)) {
+      return res.status(400).json({ success: false, message: `type must be one of: ${validTypes.join(", ")}` });
+    }
+
+    const doc = await LegalContent.findOneAndUpdate(
+      { type },
+      { content },
+      { upsert: true, new: true }
+    );
+
+    res.status(200).json({ success: true, message: "Saved successfully", data: doc });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/legal/:type — public, read by mobile app
+export const getLegalContent = async (req, res) => {
+  try {
+    const { type } = req.params;
+
+    const validTypes = ["terms_doctor", "terms_patient", "privacy_policy"];
+    if (!validTypes.includes(type)) {
+      return res.status(400).json({ success: false, message: `type must be one of: ${validTypes.join(", ")}` });
+    }
+
+    const doc = await LegalContent.findOne({ type });
+
+    res.status(200).json({
+      success: true,
+      type,
+      content: doc?.content || "",
+      updatedAt: doc?.updatedAt || null,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
