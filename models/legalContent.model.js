@@ -4,7 +4,7 @@ const legalContentSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ["terms_doctor", "terms_patient", "privacy_policy"],
+      enum: ["terms_doctor", "terms_patient", "privacy_policy_doctor", "privacy_policy_patient"],
       unique: true,
       required: true,
     },

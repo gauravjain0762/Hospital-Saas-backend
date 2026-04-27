@@ -353,7 +353,7 @@ export const setLegalContent = async (req, res) => {
     const { type } = req.params;
     const { content } = req.body;
 
-    const validTypes = ["terms_doctor", "terms_patient", "privacy_policy"];
+    const validTypes = ["terms_doctor", "terms_patient", "privacy_policy_doctor", "privacy_policy_patient"];
     if (!validTypes.includes(type)) {
       return res.status(400).json({ success: false, message: `type must be one of: ${validTypes.join(", ")}` });
     }
@@ -375,7 +375,7 @@ export const getLegalContent = async (req, res) => {
   try {
     const { type } = req.params;
 
-    const validTypes = ["terms_doctor", "terms_patient", "privacy_policy"];
+    const validTypes = ["terms_doctor", "terms_patient", "privacy_policy_doctor", "privacy_policy_patient"];
     if (!validTypes.includes(type)) {
       return res.status(400).json({ success: false, message: `type must be one of: ${validTypes.join(", ")}` });
     }
