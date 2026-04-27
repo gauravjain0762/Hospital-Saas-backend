@@ -377,7 +377,7 @@ export const getDoctorDashboard = async (req, res) => {
       date: today,
     });
 
-    const totalAppointments = appointments.length;
+    const totalAppointments = appointments.filter((a) => a.status !== "cancelled").length;
 
     const revenue = appointments
       .filter((a) => a.paymentStatus === "paid")
