@@ -645,7 +645,7 @@ export const saveFcmToken = async (req, res) => {
     const patientId = req.patient.id;
     const { fcmToken } = req.body;
 
-    await Patient.findIdAndUpdate(patientId, {
+    await Patient.findByIdAndUpdate(patientId, {
       fcmToken,
     });
 
