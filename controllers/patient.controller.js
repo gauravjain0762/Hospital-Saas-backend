@@ -428,6 +428,13 @@ export const bookAppointment = async (req, res) => {
       status: "waiting",
     });
 
+    // emit to doctor's room so dashboard updates in real-time
+    const io = req.app.get("io");
+    io.to(`doctor_${doctorId}`).emit("dashboardUpdated", {
+      doctorId,
+      lastIssuedToken: queue.lastIssuedToken,
+    });
+
     const patientsAhead = tokenNumber - queue.currentToken;
     const mins = patientsAhead * 10;
 

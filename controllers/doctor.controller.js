@@ -216,21 +216,9 @@ export const markDone = async (req, res) => {
       });
     }
 
-    // forward only logic
+    // currentToken stays at the completed token number
     if (appointment.tokenNumber >= queue.currentToken) {
       queue.currentToken = appointment.tokenNumber;
-    }
-
-    // find next waiting token greater than current
-    const nextWaiting = await Appointment.findOne({
-      doctorId,
-      date: appointment.date,
-      tokenNumber: { $gt: queue.currentToken },
-      status: "waiting",
-    }).sort({ tokenNumber: 1 });
-
-    if (nextWaiting) {
-      queue.currentToken = nextWaiting.tokenNumber;
     }
 
     await queue.save();
@@ -504,6 +492,23 @@ export const toggleDutyStatus = async (req, res) => {
           console.log(`[DUTY] FCM failed for token ${token}:`, err.message);
         }
       }
+    }
+
+    // emit real-time availability to patients in same city
+    const io = req.app.get("io");
+    const city = doctor.clinic?.city?.toLowerCase().trim();
+    if (city) {
+      io.to(`city_${city}`).emit("doctorAvailable", {
+        doctorId: doctor._id,
+        name: doctor.name,
+        profilePhoto: doctor.profilePhoto || "",
+        specialization: doctor.services?.[0] || "",
+        experience: doctor.experience || 0,
+        clinicName: doctor.clinic?.clinicName || "",
+        city: doctor.clinic?.city || "",
+        activeStatus,
+      });
+      console.log(`[SOCKET] doctorAvailable emitted | city=${city} | activeStatus=${activeStatus}`);
     }
 
     res.status(200).json({

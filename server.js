@@ -79,6 +79,13 @@ io.on("connection", (socket) => {
     console.log(`[SOCKET] Sent joinedRoom confirmation to socketId=${socket.id} | room=${room}`);
   });
 
+  // patient joins city room to get real-time doctor availability
+  socket.on("joinCityRoom", (city) => {
+    const room = `city_${city.toLowerCase().trim()}`;
+    socket.join(room);
+    console.log(`[SOCKET] joinCityRoom | socketId=${socket.id} | room=${room}`);
+  });
+
   socket.on("disconnect", (reason) => {
     console.log(`[SOCKET] Disconnected | socketId=${socket.id} | reason=${reason}`);
   });
