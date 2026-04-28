@@ -1,6 +1,7 @@
 import Queue from "../models/queue.model.js";
 import Appointment from "../models/appointment.model.js";
 import User from "../models/User.js";
+import Patient from "../models/patient.model.js";
 import Report from "../models/report.model.js";
 import admin from "../utils/firebase.js";
 import xlsx from "xlsx";
@@ -744,6 +745,83 @@ export const getMyReports = async (req, res) => {
     }));
 
     res.status(200).json({ success: true, reports: formatted });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/doctor/create-appointment
+export const createWalkInAppointment = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+    const { fullName, email, phone, problem, paymentMethod, date, slot } = req.body;
+
+    if (!fullName || !phone || !paymentMethod || !date || !slot) {
+      return res.status(400).json({ success: false, message: "fullName, phone, paymentMethod, date and slot are required" });
+    }
+
+    const doctor = await User.findById(doctorId);
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: "Doctor not found" });
+    }
+
+    // find or create patient by phone so they can log in later and see this appointment
+    let patient = await Patient.findOne({ mobile: phone });
+    if (!patient) {
+      patient = await Patient.create({ mobile: phone, fullName, email: email || "" });
+    }
+
+    let queue = await Queue.findOne({ doctorId, date });
+    if (!queue) {
+      queue = await Queue.create({ doctorId, date, currentToken: 0, lastIssuedToken: 0 });
+    }
+
+    const tokenNumber = queue.lastIssuedToken + 1;
+    queue.lastIssuedToken = tokenNumber;
+    await queue.save();
+
+    const consultationFee = doctor.clinic?.consultationFee || 0;
+    const paymentStatus = paymentMethod === "online" ? "pending" : "cash_pending";
+
+    const docPrefix = (doctor.name || "XX").replace(/\s+/g, "").substring(0, 2).toUpperCase();
+    const patPrefix = (fullName || "XX").replace(/\s+/g, "").substring(0, 2).toUpperCase();
+    const mobPrefix = (phone || "00").substring(0, 2);
+    const unique = Math.random().toString(36).substring(2, 4).toUpperCase();
+    const appointmentId = `${docPrefix}${patPrefix}${mobPrefix}${unique}`;
+
+    const appointment = await Appointment.create({
+      appointmentId,
+      doctorId,
+      patientId: patient._id,
+      date,
+      slot,
+      tokenNumber,
+      fullName,
+      email: email || "",
+      phone,
+      problem: problem || "",
+      paymentMethod,
+      paymentStatus,
+      consultationFee,
+      isFollowup: false,
+      status: "waiting",
+    });
+
+    // emit dashboard update to doctor's room
+    const io = req.app.get("io");
+    const room = `doctor_${doctorId}`;
+    io.to(room).emit("dashboardUpdated", { doctorId, lastIssuedToken: queue.lastIssuedToken });
+
+    res.status(201).json({
+      success: true,
+      message: "Walk-in appointment created",
+      tokenNumber,
+      appointmentId,
+      consultationFee,
+      paymentStatus,
+      appointment,
+    });
+
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

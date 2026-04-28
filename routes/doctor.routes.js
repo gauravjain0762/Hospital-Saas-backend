@@ -15,6 +15,7 @@ import { getTodayQueue,
     setSecondaryPhone,
     getCompletedAppointments,
     exportReport,
+    createWalkInAppointment,
  } from "../controllers/doctor.controller.js";
 
 router.get("/profile", protect, getDoctorProfile);
@@ -28,6 +29,7 @@ router.patch("/save-fcm-token", protect, saveFcmToken);
 router.patch("/secondary-phone", protect, setSecondaryPhone);
 router.get("/completed-appointments", protect, getCompletedAppointments);
 router.get("/export-report", exportReport);
+router.post("/create-appointment", protect, createWalkInAppointment);
 router.post("/reports", protect, submitReport);
 router.get("/reports", protect, getMyReports);
 
