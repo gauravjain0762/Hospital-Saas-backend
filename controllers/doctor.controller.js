@@ -649,6 +649,9 @@ export const getCompletedAppointments = async (req, res) => {
   try {
     const doctorId = req.user._id;
     const { filter, startDate, endDate } = req.query;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
     const today = new Date();
     today.setHours(23, 59, 59, 999);
@@ -674,13 +677,23 @@ export const getCompletedAppointments = async (req, res) => {
       });
     }
 
-    const appointments = await Appointment.find({
+    const matchQuery = {
       doctorId,
       status: "completed",
       completedAt: { $gte: fromDate, $lte: today },
-    })
-      .populate("patientId", "fullName mobile")
-      .sort({ completedAt: -1 });
+    };
+
+    const [total, allForRevenue, appointments] = await Promise.all([
+      Appointment.countDocuments(matchQuery),
+      Appointment.find(matchQuery).select("consultationFee"),
+      Appointment.find(matchQuery)
+        .populate("patientId", "fullName mobile")
+        .sort({ completedAt: -1 })
+        .skip(skip)
+        .limit(limit),
+    ]);
+
+    const totalRevenue = allForRevenue.reduce((sum, a) => sum + (a.consultationFee || 0), 0);
 
     const result = appointments.map((a) => ({
       appointmentId: a.appointmentId || a._id,
@@ -696,12 +709,12 @@ export const getCompletedAppointments = async (req, res) => {
       completedAt: a.completedAt,
     }));
 
-    const totalRevenue = result.reduce((sum, a) => sum + (a.consultationFee || 0), 0);
-
     res.status(200).json({
       success: true,
-      total: result.length,
+      total,
       totalRevenue,
+      page,
+      totalPages: Math.ceil(total / limit),
       appointments: result,
     });
 
