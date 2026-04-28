@@ -826,3 +826,78 @@ export const createWalkInAppointment = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// GET /api/doctor/settings
+export const getDoctorSettings = async (req, res) => {
+  try {
+    const doctor = await User.findById(req.user._id).select("availability services");
+    if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found" });
+
+    res.status(200).json({
+      success: true,
+      availability: doctor.availability || [],
+      services: doctor.services || [],
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PATCH /api/doctor/settings/availability
+export const updateAvailability = async (req, res) => {
+  try {
+    const { availability } = req.body;
+
+    if (!Array.isArray(availability)) {
+      return res.status(400).json({ success: false, message: "availability must be an array" });
+    }
+
+    const doctor = await User.findByIdAndUpdate(
+      req.user._id,
+      { availability },
+      { new: true }
+    ).select("availability");
+
+    res.status(200).json({
+      success: true,
+      message: "Availability updated",
+      availability: doctor.availability,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PATCH /api/doctor/settings/services
+export const updateServices = async (req, res) => {
+  try {
+    const { action, service } = req.body;
+
+    if (!action || !service) {
+      return res.status(400).json({ success: false, message: "action (add/remove) and service are required" });
+    }
+
+    const doctor = await User.findById(req.user._id);
+    if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found" });
+
+    if (action === "add") {
+      if (!doctor.services.includes(service)) {
+        doctor.services.push(service);
+      }
+    } else if (action === "remove") {
+      doctor.services = doctor.services.filter((s) => s !== service);
+    } else {
+      return res.status(400).json({ success: false, message: "action must be 'add' or 'remove'" });
+    }
+
+    await doctor.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Service ${action === "add" ? "added" : "removed"}`,
+      services: doctor.services,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

@@ -16,6 +16,9 @@ import { getTodayQueue,
     getCompletedAppointments,
     exportReport,
     createWalkInAppointment,
+    getDoctorSettings,
+    updateAvailability,
+    updateServices,
  } from "../controllers/doctor.controller.js";
 
 router.get("/profile", protect, getDoctorProfile);
@@ -30,6 +33,9 @@ router.patch("/secondary-phone", protect, setSecondaryPhone);
 router.get("/completed-appointments", protect, getCompletedAppointments);
 router.get("/export-report", exportReport);
 router.post("/create-appointment", protect, createWalkInAppointment);
+router.get("/settings", protect, getDoctorSettings);
+router.patch("/settings/availability", protect, updateAvailability);
+router.patch("/settings/services", protect, updateServices);
 router.post("/reports", protect, submitReport);
 router.get("/reports", protect, getMyReports);
 
