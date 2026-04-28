@@ -455,9 +455,11 @@ export const toggleDutyStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: "activeStatus must be 'active' or 'inactive'" });
     }
 
+    const doctorAvailable = activeStatus === "active";
+
     const doctor = await User.findByIdAndUpdate(
       doctorId,
-      { activeStatus },
+      { activeStatus, doctorAvailable },
       { new: true }
     );
 
@@ -509,14 +511,16 @@ export const toggleDutyStatus = async (req, res) => {
         clinicName: doctor.clinic?.clinicName || "",
         city: doctor.clinic?.city || "",
         activeStatus,
+        doctorAvailable,
       });
-      console.log(`[SOCKET] doctorAvailable emitted | city=${city} | activeStatus=${activeStatus}`);
+      console.log(`[SOCKET] doctorAvailable emitted | city=${city} | doctorAvailable=${doctorAvailable}`);
     }
 
     res.status(200).json({
       success: true,
       message: `You are now ${activeStatus === "active" ? "ON DUTY" : "OFF DUTY"}`,
       activeStatus: doctor.activeStatus,
+      doctorAvailable: doctor.doctorAvailable,
     });
 
   } catch (error) {

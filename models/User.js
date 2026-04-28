@@ -43,6 +43,11 @@ const userSchema = new mongoose.Schema(
   default: "inactive",
 },
 
+    doctorAvailable: {
+      type: Boolean,
+      default: false,
+    },
+
     fcmToken: {
       type: String,
       default: "",

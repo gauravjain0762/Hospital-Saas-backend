@@ -96,7 +96,7 @@ cron.schedule("59 23 * * *", async () => {
   try {
     const result = await User.updateMany(
       { activeStatus: "active" },
-      { activeStatus: "inactive" }
+      { activeStatus: "inactive", doctorAvailable: false }
     );
     console.log(`[CRON] 11:59 PM IST — reset ${result.modifiedCount} doctor(s) to inactive`);
   } catch (err) {
