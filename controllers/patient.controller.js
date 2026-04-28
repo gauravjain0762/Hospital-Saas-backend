@@ -475,19 +475,23 @@ export const getMyAppointments = async (req, res) => {
   try {
     const patientId = req.patient.id;
     const { status } = req.query;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
     const query = { patientId };
+    if (status) query.status = status;
 
-    if (status) {
-      query.status = status;
-    }
-
-    const appointments = await Appointment.find(query)
-      .populate({
-        path: "doctorId",
-        select: "name profilePhoto services clinic experience",
-      })
-      .sort({ createdAt: -1 });
+    const [total, upcomingCount, completedCount, appointments] = await Promise.all([
+      Appointment.countDocuments(query),
+      Appointment.countDocuments({ patientId, status: { $in: ["waiting", "in_progress"] } }),
+      Appointment.countDocuments({ patientId, status: "completed" }),
+      Appointment.find(query)
+        .populate({ path: "doctorId", select: "name profilePhoto services clinic experience" })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+    ]);
 
     const result = [];
 
@@ -504,52 +508,30 @@ export const getMyAppointments = async (req, res) => {
         status: item.status,
         tokenNumber: item.tokenNumber,
         currentToken,
-
         date: item.date,
         slot: item.slot,
         time: item.time,
-
         doctor: {
           id: item.doctorId?._id || "",
           name: item.doctorId?.name || "",
           profilePhoto: item.doctorId?.profilePhoto || "",
-
-          // ✅ existing field
-          specialization:
-            item.doctorId?.services?.[0] || "General",
-
-          // ✅ NEW ADDED FIELD
-          services:
-            item.doctorId?.services || [],
-
-          // ✅ OPTIONAL (already selected in populate)
-          experience:
-            item.doctorId?.experience || 0,
+          specialization: item.doctorId?.services?.[0] || "General",
+          services: item.doctorId?.services || [],
+          experience: item.doctorId?.experience || 0,
         },
-
         clinic: {
-          clinicName:
-            item.doctorId?.clinic?.clinicName || "",
-          city:
-            item.doctorId?.clinic?.city || "",
-          googleBusinessLink:
-            item.doctorId?.clinic?.googleBusinessLink || "",
+          clinicName: item.doctorId?.clinic?.clinicName || "",
+          city: item.doctorId?.clinic?.city || "",
+          googleBusinessLink: item.doctorId?.clinic?.googleBusinessLink || "",
         },
       });
     }
 
-    const upcomingCount = result.filter(
-      (x) =>
-        x.status === "waiting" ||
-        x.status === "in_progress"
-    ).length;
-
-    const completedCount = result.filter(
-      (x) => x.status === "completed"
-    ).length;
-
     res.status(200).json({
       success: true,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
       upcomingCount,
       completedCount,
       appointments: result,
