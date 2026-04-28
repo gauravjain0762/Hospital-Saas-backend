@@ -5,6 +5,7 @@ import Report from "../models/report.model.js";
 import LegalContent from "../models/legalContent.model.js";
 import PatientReport from "../models/patientReport.model.js";
 import { sendApprovalEmail, sendRejectionEmail } from "../utils/sendEmail.js";
+import { formatLegalContent } from "../utils/formatLegalContent.js";
 
 //get pending users
 
@@ -454,11 +455,14 @@ export const getLegalContent = async (req, res) => {
     }
 
     const doc = await LegalContent.findOne({ type });
+    const content = type === "terms_doctor" || type === "terms_patient"
+      ? formatLegalContent(doc?.content || "")
+      : doc?.content || "";
 
     res.status(200).json({
       success: true,
       type,
-      content: doc?.content || "",
+      content,
       updatedAt: doc?.updatedAt || null,
     });
   } catch (error) {
