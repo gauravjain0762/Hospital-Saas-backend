@@ -40,12 +40,11 @@ const reportSchema = new mongoose.Schema(
 );
 
 // auto-generate ticket ID before saving
-reportSchema.pre("save", async function (next) {
+reportSchema.pre("save", async function () {
   if (!this.ticketId) {
     const count = await mongoose.model("Report").countDocuments();
     this.ticketId = "TKT" + String(count + 1).padStart(5, "0");
   }
-  next();
 });
 
 export default mongoose.model("Report", reportSchema);
