@@ -901,3 +901,24 @@ export const updateServices = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// DELETE /api/doctor/account
+export const deleteDoctorAccount = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+    const { reason } = req.body;
+
+    const doctor = await User.findById(doctorId);
+    if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found" });
+
+    await User.findByIdAndDelete(doctorId);
+
+    res.status(200).json({
+      success: true,
+      message: "Account deleted successfully",
+      reason: reason || null,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

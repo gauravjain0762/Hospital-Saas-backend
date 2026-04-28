@@ -20,6 +20,7 @@ import {
     getAppointmentPreview,
     submitReport,
     getMyReports,
+    deletePatientAccount,
 } from "../controllers/patient.controller.js";
 
 import patientAuth from "../middleware/patientAuth.js";
@@ -61,5 +62,6 @@ router.get("/appointment-preview/:doctorId", getAppointmentPreview);
 
 router.post("/report", patientAuth, submitReport);
 router.get("/reports", patientAuth, getMyReports);
+router.delete("/account", patientAuth, deletePatientAccount);
 
 export default router; // ✅ IMPORTANT

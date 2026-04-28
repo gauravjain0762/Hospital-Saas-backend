@@ -19,6 +19,7 @@ import { getTodayQueue,
     getDoctorSettings,
     updateAvailability,
     updateServices,
+    deleteDoctorAccount,
  } from "../controllers/doctor.controller.js";
 
 router.get("/profile", protect, getDoctorProfile);
@@ -37,6 +38,7 @@ router.get("/settings", protect, getDoctorSettings);
 router.patch("/settings/availability", protect, updateAvailability);
 router.patch("/settings/services", protect, updateServices);
 router.post("/reports", protect, submitReport);
+router.delete("/account", protect, deleteDoctorAccount);
 router.get("/reports", protect, getMyReports);
 
 
