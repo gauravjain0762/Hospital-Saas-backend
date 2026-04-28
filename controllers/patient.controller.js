@@ -250,7 +250,6 @@ export const getDoctors = async (req, res) => {
     const query = {
       role: "doctor",
       status: "approved",
-      doctorAvailable: true,
     };
 
     if (service) {
