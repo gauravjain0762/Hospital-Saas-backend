@@ -17,6 +17,7 @@ import {
     getLegalContent,
     getAllPatientReports,
     updatePatientReportStatus,
+    getPaymentsSummary,
 } from "../controllers/adminController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -57,6 +58,7 @@ router.patch("/app-version/:appType/:platform", updateAppVersion);
 
 // appointments
 router.get("/appointments", getAllAppointments);
+router.get("/payments/summary", getPaymentsSummary);
 
 // legal content (admin protected)
 router.patch("/legal/:type", setLegalContent);

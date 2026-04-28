@@ -463,6 +463,24 @@ export const getLegalContent = async (req, res) => {
   }
 };
 
+// GET /api/admin/payments/summary
+export const getPaymentsSummary = async (req, res) => {
+  try {
+    const totalBookings = await Appointment.countDocuments();
+
+    const revenueResult = await Appointment.aggregate([
+      { $match: { status: "completed", paymentStatus: "paid" } },
+      { $group: { _id: null, total: { $sum: "$consultationFee" } } },
+    ]);
+
+    const totalRevenue = revenueResult[0]?.total || 0;
+
+    res.status(200).json({ success: true, totalRevenue, totalBookings });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // GET /api/admin/appointments — all appointments with filters
 export const getAllAppointments = async (req, res) => {
   try {
