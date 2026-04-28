@@ -18,6 +18,7 @@ export const getPendingUsers = async (req, res) => {
 
         const users = await User.find({ status: "pending" })
             .select("-password")
+            .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
 
