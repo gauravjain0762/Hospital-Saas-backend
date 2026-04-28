@@ -21,6 +21,7 @@ import {
     submitReport,
     getMyReports,
     deletePatientAccount,
+    toggleNotifications,
 } from "../controllers/patient.controller.js";
 
 import patientAuth from "../middleware/patientAuth.js";
@@ -62,6 +63,7 @@ router.get("/appointment-preview/:doctorId", getAppointmentPreview);
 
 router.post("/report", patientAuth, submitReport);
 router.get("/reports", patientAuth, getMyReports);
+router.patch("/notifications-toggle", patientAuth, toggleNotifications);
 router.delete("/account", patientAuth, deletePatientAccount);
 
 export default router; // ✅ IMPORTANT

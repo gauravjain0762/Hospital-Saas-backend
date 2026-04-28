@@ -144,8 +144,9 @@ export const nextToken = async (req, res) => {
 
     for (const item of targetAppointments) {
       const fcmToken = item.patientId?.fcmToken;
+      const notificationsEnabled = item.patientId?.notificationsEnabled !== false;
 
-      if (fcmToken) {
+      if (fcmToken && notificationsEnabled) {
         try {
           await admin.messaging().send({
             token: fcmToken,
@@ -249,7 +250,7 @@ export const markDone = async (req, res) => {
 
     console.log(`[FCM] targetAppointment found=${!!targetAppointment} | fcmToken=${targetAppointment?.patientId?.fcmToken || "EMPTY"}`);
 
-    if (targetAppointment?.patientId?.fcmToken) {
+    if (targetAppointment?.patientId?.fcmToken && targetAppointment.patientId.notificationsEnabled !== false) {
       try {
         await admin.messaging().send({
           token: targetAppointment.patientId.fcmToken,
@@ -476,9 +477,10 @@ export const toggleDutyStatus = async (req, res) => {
         doctorId,
         date: today,
         status: "waiting",
-      }).populate("patientId", "fcmToken fullName");
+      }).populate("patientId", "fcmToken fullName notificationsEnabled");
 
       const tokens = appointments
+        .filter((a) => a.patientId?.notificationsEnabled !== false)
         .map((a) => a.patientId?.fcmToken)
         .filter(Boolean);
 

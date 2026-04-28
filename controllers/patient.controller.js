@@ -932,6 +932,32 @@ export const getMyReports = async (req, res) => {
   }
 };
 
+// PATCH /api/patient/notifications-toggle
+export const toggleNotifications = async (req, res) => {
+  try {
+    const patientId = req.patient.id;
+    const { enabled } = req.body;
+
+    if (typeof enabled !== "boolean") {
+      return res.status(400).json({ success: false, message: "enabled must be true or false" });
+    }
+
+    const patient = await Patient.findByIdAndUpdate(
+      patientId,
+      { notificationsEnabled: enabled },
+      { new: true }
+    ).select("notificationsEnabled");
+
+    res.status(200).json({
+      success: true,
+      message: `Notifications ${enabled ? "enabled" : "disabled"}`,
+      notificationsEnabled: patient.notificationsEnabled,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // DELETE /api/patient/account
 export const deletePatientAccount = async (req, res) => {
   try {
