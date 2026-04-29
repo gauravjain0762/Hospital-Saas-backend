@@ -455,9 +455,7 @@ export const getLegalContent = async (req, res) => {
     }
 
     const doc = await LegalContent.findOne({ type });
-    const content = type === "terms_doctor" || type === "terms_patient"
-      ? formatLegalContent(doc?.content || "")
-      : doc?.content || "";
+    const content = formatLegalContent(doc?.content || "");
 
     res.status(200).json({
       success: true,
