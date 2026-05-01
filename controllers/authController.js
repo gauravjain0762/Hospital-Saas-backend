@@ -11,6 +11,7 @@ import Qualification from "../models/Qualification.js";
 
 // SEND OTP
 export const sendOtp = async (req, res) => {
+  console.log("HIT /doctor-send-otp", req.body);
   try {
     const { phone } = req.body;
 
@@ -99,6 +100,7 @@ if (existingUser.status === "pending" && !hasRejections && existingUser.registra
       message: "OTP sent successfully",
     });
   } catch (err) {
+    console.error("SEND OTP ERROR:", err); 
     res.status(500).json({ message: err.message });
   }
 };
