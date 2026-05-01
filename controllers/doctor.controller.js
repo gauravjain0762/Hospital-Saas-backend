@@ -356,7 +356,7 @@ export const getDoctorSlots = async (req, res) => {
 export const getDoctorProfile = async (req, res) => {
   try {
     const doctor = await User.findById(req.user._id).select(
-      "-password -otp -otpExpiry -bankDetails -documents"
+      "-password -otp -otpExpiry -secondaryOtp -secondaryOtpExpiry"
     );
 
     if (!doctor) {
