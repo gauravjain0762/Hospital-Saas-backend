@@ -904,6 +904,72 @@ export const updateServices = async (req, res) => {
   }
 };
 
+// GET /api/doctor/step3
+export const getStep3 = async (req, res) => {
+  try {
+    const doctor = await User.findById(req.user._id).select(
+      "services availability maxPatientsPerSlot"
+    );
+
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: "Doctor not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      services: doctor.services || [],
+      availability: doctor.availability || [],
+      maxPatientsPerSlot: doctor.maxPatientsPerSlot || null,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PATCH /api/doctor/step3
+export const updateStep3 = async (req, res) => {
+  try {
+    const { services, availability, maxPatientsPerSlot } = req.body;
+
+    if (maxPatientsPerSlot !== undefined && Number(maxPatientsPerSlot) < 1) {
+      return res.status(400).json({
+        success: false,
+        message: "Max patients per slot must be at least 1",
+      });
+    }
+
+    if (availability !== undefined && !Array.isArray(availability)) {
+      return res.status(400).json({
+        success: false,
+        message: "Availability must be an array",
+      });
+    }
+
+    const doctor = await User.findById(req.user._id);
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: "Doctor not found" });
+    }
+
+    if (services !== undefined) doctor.services = services;
+    if (availability !== undefined) doctor.availability = availability;
+    if (maxPatientsPerSlot !== undefined) doctor.maxPatientsPerSlot = Number(maxPatientsPerSlot);
+
+    await doctor.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Step 3 updated successfully",
+      data: {
+        services: doctor.services,
+        availability: doctor.availability,
+        maxPatientsPerSlot: doctor.maxPatientsPerSlot,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // DELETE /api/doctor/account
 export const deleteDoctorAccount = async (req, res) => {
   try {

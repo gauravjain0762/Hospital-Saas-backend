@@ -18,7 +18,7 @@ export const getPendingUsers = async (req, res) => {
         const total = await User.countDocuments({ status: "pending" });
 
         const users = await User.find({ status: "pending" })
-            .select("-password")
+            .select("-password -otp -otpExpiry -secondaryOtp -secondaryOtpExpiry")
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -50,7 +50,7 @@ export const getAllUsers = async (req, res) => {
             status: "approved",
             role: { $ne: "admin" },
         })
-            .select("-password")
+            .select("-password -otp -otpExpiry -secondaryOtp -secondaryOtpExpiry")
             .skip(skip)
             .limit(limit);
 
