@@ -26,6 +26,11 @@ const userSchema = new mongoose.Schema(
 
     experience: Number,
 
+    gender: {
+      type: String,
+      enum: ["male", "female"],
+    },
+
     registrationStep: {
       type: Number,
       default: 0,
@@ -80,11 +85,13 @@ rejections: {
       photos: [String],
     },
 
+    qualifications: [String],
+
     services: [String],
 
     availability: [
       {
-        day: String, // Monday, Tuesday...
+        day: String,
         isActive: Boolean,
         slots: [
           {
@@ -95,23 +102,24 @@ rejections: {
       },
     ],
 
-    bankDetails: {
-      gstNumber: String, // optional
-      panNumber: String,
-      accountNumber: String,
-      beneficiaryName: String,
-      ifscCode: String,
-      accountType: {
-        type: String,
-        enum: ["savings", "current"],
-      },
+    maxPatientsPerSlot: {
+      type: Number,
+      default: null,
+    },
+
+    paymentDetails: {
+      upiId: String,
+      qrCode: String,
     },
 
     documents: {
-      medicalLicense: String,
-      idProof: String,
-      clinicCertificate: String,
-  },
+      aadharFront: String,
+      aadharBack: String,
+      panCard: String,
+    },
+
+    awards: [String],
+    achievements: [String],
 
     role: {
       type: String,

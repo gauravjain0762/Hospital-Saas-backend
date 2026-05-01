@@ -8,6 +8,7 @@ import {
   registerStep2,
   registerStep3,
   getServices,
+  getQualifications,
   registerStep4,
   registerStep5,
   loginUser,
@@ -26,14 +27,14 @@ router.get("/doctor-me", protect, getMe);
 router.post("/doctor-register-step1", upload.single("profilePhoto"), registerStep1);
 router.post("/doctor-register-step2", protect, upload.array("clinicPhotos", 7), registerStep2);
 router.post("/doctor-register-step3", protect, registerStep3);
-router.post("/doctor-register-step4", protect, registerStep4);
+router.post("/doctor-register-step4", protect, upload.single("qrCode"), registerStep4);
 router.post("/doctor-register-step5", protect, upload.fields([
-  { name: "medicalLicense", maxCount: 1 },
-  { name: "idProof", maxCount: 1 },
-  { name: "clinicCertificate", maxCount: 1 },
-]), registerStep5
-);
+  { name: "aadharFront", maxCount: 1 },
+  { name: "aadharBack", maxCount: 1 },
+  { name: "panCard", maxCount: 1 },
+]), registerStep5);
 
 router.get("/doctor-services", getServices);
+router.get("/doctor-qualifications", getQualifications);
 
 export default router;

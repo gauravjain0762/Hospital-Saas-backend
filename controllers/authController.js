@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import cloudinary from "../utils/cloudinary.js";
 import streamifier from "streamifier";
 import Service from "../models/Service.js";
+import Qualification from "../models/Qualification.js";
 
 
 
@@ -194,7 +195,7 @@ export const verifyOtp = async (req, res) => {
 // step1 
 export const registerStep1 = async (req, res) => {
   try {
-    const { name, email, phone, experience } = req.body;
+    const { name, email, phone, experience, gender } = req.body;
 
     const user = await User.findOne({ phone });
 
@@ -227,9 +228,17 @@ export const registerStep1 = async (req, res) => {
       profilePhotoUrl = req.files.profilePhoto[0].path;
     }
 
+    if (!["male", "female"].includes(gender)) {
+      return res.status(400).json({
+        success: false,
+        message: "Gender must be male or female",
+      });
+    }
+
     user.name = name;
     user.email = email;
     user.experience = experience;
+    user.gender = gender;
     user.profilePhoto = profilePhotoUrl;
     user.registrationStep = 1;
 
@@ -270,11 +279,10 @@ export const registerStep2 = async (req, res) => {
       pincode,
       consultationFee,
       freeFollowupDays,
-
-      // NEW FIELDS
       rating,
       latitude,
-      longitude
+      longitude,
+      qualifications,
     } = req.body;
 
     const user = await User.findById(req.user._id);
@@ -307,6 +315,21 @@ export const registerStep2 = async (req, res) => {
   });
 }
 
+    if (!qualifications || qualifications.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one qualification is required",
+      });
+    }
+
+    for (let qualName of qualifications) {
+      await Qualification.findOneAndUpdate(
+        { name: qualName },
+        { name: qualName },
+        { upsert: true, new: true }
+      );
+    }
+
     user.clinic = {
   newClinic: newClinic === true || newClinic === "true",
   googleBusinessLink,
@@ -328,8 +351,8 @@ export const registerStep2 = async (req, res) => {
   photos: photoUrls,
 };
 
+    user.qualifications = qualifications;
     user.rejections = user.rejections.filter(r => r.step !== 2);
-
     user.registrationStep = 2;
 
     await user.save();
@@ -338,6 +361,7 @@ export const registerStep2 = async (req, res) => {
       success: true,
       message: "Step 2 completed",
       clinic: user.clinic,
+      qualifications: user.qualifications,
     });
 
   } catch (err) {
@@ -347,7 +371,7 @@ export const registerStep2 = async (req, res) => {
 
 export const registerStep3 = async (req, res) => {
   try {
-    const { services, availability } = req.body;
+    const { services, availability, maxPatientsPerSlot } = req.body;
 
     const user = await User.findById(req.user._id);
 
@@ -368,9 +392,16 @@ export const registerStep3 = async (req, res) => {
       }
     }
 
-    //save in user
+    if (!maxPatientsPerSlot || Number(maxPatientsPerSlot) < 1) {
+      return res.status(400).json({
+        success: false,
+        message: "Max patients per slot is required and must be at least 1",
+      });
+    }
+
     user.services = services;
     user.availability = availability;
+    user.maxPatientsPerSlot = Number(maxPatientsPerSlot);
     user.registrationStep = 3;
 
     user.rejections = user.rejections.filter(r => r.step !== 3);
@@ -383,6 +414,7 @@ export const registerStep3 = async (req, res) => {
       data: {
         services: user.services,
         availability: user.availability,
+        maxPatientsPerSlot: user.maxPatientsPerSlot,
       },
     });
   } catch (err) {
@@ -403,16 +435,22 @@ export const getServices = async (req, res) => {
   }
 };
 
+export const getQualifications = async (req, res) => {
+  try {
+    const qualifications = await Qualification.find().sort({ name: 1 });
+
+    res.json({
+      success: true,
+      qualifications,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 export const registerStep4 = async (req, res) => {
   try {
-    const {
-      gstNumber,
-      panNumber,
-      accountNumber,
-      ifscCode,
-      accountType,
-      beneficiaryName,
-    } = req.body;
+    const { upiId } = req.body;
 
     const user = await User.findById(req.user._id);
 
@@ -422,60 +460,27 @@ export const registerStep4 = async (req, res) => {
       });
     }
 
-    // 🔥 Basic validations
-    if (!panNumber || !accountNumber || !ifscCode || !accountType || !beneficiaryName) {
+    if (!upiId) {
       return res.status(400).json({
-        message: "Required fields missing",
+        message: "UPI ID is required",
       });
     }
 
-    // PAN validation (simple)
-    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-    if (!panRegex.test(panNumber)) {
+    const upiRegex = /^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/;
+    if (!upiRegex.test(upiId)) {
       return res.status(400).json({
-        message: "Invalid PAN format",
+        message: "Invalid UPI ID format",
       });
     }
 
-    // IFSC validation (simple)
-    const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
-    if (!ifscRegex.test(ifscCode)) {
-      return res.status(400).json({
-        message: "Invalid IFSC code",
-      });
-    }
+    const qrCodeUrl = req.file?.path || req.files?.qrCode?.[0]?.path || "";
 
-    // Account type validation
-    if (!["savings", "current"].includes(accountType)) {
-      return res.status(400).json({
-        message: "Invalid account type",
-      });
-    }
-
-    // Account number duplicate check
-const existingAccount = await User.findOne({
-  "bankDetails.accountNumber": accountNumber,
-  _id: { $ne: req.user._id }, // exclude current user
-});
-
-if (existingAccount) {
-  return res.status(400).json({
-    message: "This account number is already registered. Please enter a valid account number.",
-  });
-}
-
-    //  Save data
-    user.bankDetails = {
-      gstNumber,
-      panNumber,
-      accountNumber,
-      ifscCode,
-      accountType,
-      beneficiaryName, 
+    user.paymentDetails = {
+      upiId,
+      qrCode: qrCodeUrl,
     };
 
     user.rejections = user.rejections.filter(r => r.step !== 4);
-
     user.registrationStep = 4;
 
     await user.save();
@@ -483,7 +488,7 @@ if (existingAccount) {
     res.json({
       success: true,
       message: "Step 4 completed",
-      bankDetails: user.bankDetails,
+      paymentDetails: user.paymentDetails,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -505,15 +510,27 @@ export const registerStep5 = async (req, res) => {
       });
     }
 
-    const medicalLicenseUrl = req.files.medicalLicense?.[0]?.path || "";
-    const idProofUrl = req.files.idProof?.[0]?.path || "";
-    const clinicCertificateUrl = req.files.clinicCertificate?.[0]?.path || "";
+    const aadharFrontUrl = req.files?.aadharFront?.[0]?.path || "";
+    const aadharBackUrl = req.files?.aadharBack?.[0]?.path || "";
+    const panCardUrl = req.files?.panCard?.[0]?.path || "";
+
+    if (!aadharFrontUrl || !aadharBackUrl) {
+      return res.status(400).json({
+        success: false,
+        message: "Aadhar card front and back are required",
+      });
+    }
 
     user.documents = {
-      medicalLicense: medicalLicenseUrl,
-      idProof: idProofUrl,
-      clinicCertificate: clinicCertificateUrl,
+      aadharFront: aadharFrontUrl,
+      aadharBack: aadharBackUrl,
+      panCard: panCardUrl,
     };
+
+    const { awards, achievements } = req.body;
+
+    if (awards !== undefined) user.awards = awards;
+    if (achievements !== undefined) user.achievements = achievements;
 
     user.rejections = user.rejections.filter(r => r.step !== 5);
     user.registrationStep = 5;

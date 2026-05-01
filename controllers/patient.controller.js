@@ -369,6 +369,23 @@ export const bookAppointment = async (req, res) => {
       });
     }
 
+    // Enforce max patients per slot
+    if (doctor.maxPatientsPerSlot) {
+      const slotBookings = await Appointment.countDocuments({
+        doctorId,
+        date,
+        slot,
+        status: { $ne: "cancelled" },
+      });
+
+      if (slotBookings >= doctor.maxPatientsPerSlot) {
+        return res.status(400).json({
+          success: false,
+          message: "This slot is fully booked. Please choose another slot.",
+        });
+      }
+    }
+
     // One booking per day
     const existing = await Appointment.findOne({
       doctorId,
