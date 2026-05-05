@@ -12,6 +12,7 @@ import { getTodayQueue,
     getMyReports,
     toggleDutyStatus,
     saveFcmToken,
+    getEmployees,
     addEmployee,
     verifyEmployeeOtp,
     removeEmployee,
@@ -34,6 +35,7 @@ router.patch("/mark-paid/:id", protect, markPaid);
 router.get("/dashboard", protect, getDoctorDashboard);
 router.patch("/duty-status", protect, toggleDutyStatus);
 router.patch("/save-fcm-token", protect, saveFcmToken);
+router.get("/employees", protect, getEmployees);
 router.post("/employees", protect, addEmployee);
 router.post("/employees/verify", protect, verifyEmployeeOtp);
 router.delete("/employees/:phone", protect, removeEmployee);

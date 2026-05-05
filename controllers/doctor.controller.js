@@ -541,6 +541,21 @@ export const toggleDutyStatus = async (req, res) => {
   }
 };
 
+// GET /api/doctor/employees
+export const getEmployees = async (req, res) => {
+  try {
+    const doctor = await User.findById(req.user._id).select("employees");
+    const employees = doctor.employees.map((e) => ({
+      name: e.name,
+      phone: e.phone,
+      verified: e.verified,
+    }));
+    res.json({ success: true, employees });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // POST /api/doctor/employees
 export const addEmployee = async (req, res) => {
   try {
