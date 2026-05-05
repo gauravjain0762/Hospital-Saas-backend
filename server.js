@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import cors from "cors";
 import http from "http";
 import { Server } from "socket.io";
+import cron from "node-cron";
 
 import adminRoutes from "./routes/adminRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -90,6 +91,18 @@ io.on("connection", (socket) => {
   });
 });
 
+// reset doctorAvailable at 11:59 PM every night — never touches activeStatus
+cron.schedule("59 23 * * *", async () => {
+  try {
+    const result = await User.updateMany(
+      { doctorAvailable: true },
+      { doctorAvailable: false }
+    );
+    console.log(`[CRON] 11:59 PM IST — reset ${result.modifiedCount} doctor(s) duty status`);
+  } catch (err) {
+    console.error("[CRON] Failed to reset duty status:", err.message);
+  }
+}, { timezone: "Asia/Kolkata" });
 
 const startServer = async () => {
   try {
