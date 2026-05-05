@@ -381,8 +381,14 @@ export const getDoctorDashboard = async (req, res) => {
 
     const totalAppointments = appointments.filter((a) => a.status !== "cancelled").length;
 
-    const revenue = appointments
-      .filter((a) => a.paymentStatus === "paid")
+    const paidAppointments = appointments.filter((a) => a.paymentStatus === "paid");
+
+    const onlineRevenue = paidAppointments
+      .filter((a) => a.paymentMethod === "online")
+      .reduce((sum, a) => sum + (a.consultationFee || 0), 0);
+
+    const offlineRevenue = paidAppointments
+      .filter((a) => a.paymentMethod === "cash")
       .reduce((sum, a) => sum + (a.consultationFee || 0), 0);
 
     const completed = appointments.filter((a) => a.status === "completed").length;
@@ -397,7 +403,11 @@ export const getDoctorDashboard = async (req, res) => {
       completed,
       waiting,
       cancelled,
-      revenue,
+      revenue: {
+        total: onlineRevenue + offlineRevenue,
+        online: onlineRevenue,
+        offline: offlineRevenue,
+      },
     });
 
   } catch (error) {
