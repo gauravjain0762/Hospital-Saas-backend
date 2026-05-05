@@ -67,16 +67,17 @@ if (existingUser.status === "pending" && !hasRejections && existingUser.registra
       // ✅ Rejected with rejections — fall through, allow OTP
     }
 
-    // check if this is a secondary (receptionist) phone
-    const doctorWithSecondary = await User.findOne({ secondaryPhone: phone });
-    if (doctorWithSecondary) {
+    // check if this is an employee phone
+    const doctorWithEmployee = await User.findOne({ "employees.phone": phone, "employees.verified": true });
+    if (doctorWithEmployee) {
+      const emp = doctorWithEmployee.employees.find((e) => e.phone === phone && e.verified);
       const fixedOtp = process.env.FIXED_OTP?.trim();
       const otp = fixedOtp || generateOtp();
-      doctorWithSecondary.secondaryOtp = otp;
-      doctorWithSecondary.secondaryOtpExpiry = new Date(Date.now() + 5 * 60 * 1000);
-      await doctorWithSecondary.save();
-      console.log("Secondary OTP:", otp);
-      return res.json({ success: true, message: "OTP sent successfully", mode: "secondary" });
+      emp.otp = otp;
+      emp.otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
+      await doctorWithEmployee.save();
+      console.log("Employee OTP:", otp);
+      return res.json({ success: true, message: "OTP sent successfully", mode: "employee" });
     }
 
     const fixedOtp = process.env.FIXED_OTP?.trim();
@@ -115,21 +116,20 @@ export const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: "Please enter otp" });
     }
 
-    // check if secondary phone login
-    const doctorWithSecondary = await User.findOne({ secondaryPhone: phone });
-    if (doctorWithSecondary) {
-      if (
-        String(doctorWithSecondary.secondaryOtp) !== String(otp) ||
-        doctorWithSecondary.secondaryOtpExpiry < new Date()
-      ) {
+    // check if employee phone login
+    const doctorWithEmployee = await User.findOne({ "employees.phone": phone, "employees.verified": true });
+    if (doctorWithEmployee) {
+      const emp = doctorWithEmployee.employees.find((e) => e.phone === phone && e.verified);
+      if (!emp || String(emp.otp) !== String(otp) || emp.otpExpiry < new Date()) {
         return res.status(400).json({ message: "Invalid or expired OTP" });
       }
 
-      doctorWithSecondary.secondaryOtp = null;
-      await doctorWithSecondary.save();
+      emp.otp = null;
+      emp.otpExpiry = null;
+      await doctorWithEmployee.save();
 
       const token = jwt.sign(
-        { id: doctorWithSecondary._id, isSecondary: true },
+        { id: doctorWithEmployee._id, isEmployee: true, employeePhone: phone, employeeName: emp.name },
         process.env.JWT_SECRET,
         { expiresIn: "7d" }
       );
@@ -138,16 +138,16 @@ export const verifyOtp = async (req, res) => {
         success: true,
         message: "OTP verified",
         token,
-        isSecondary: true,
+        isEmployee: true,
+        employee: { name: emp.name, phone: emp.phone },
         user: {
-          id: doctorWithSecondary._id,
-          name: doctorWithSecondary.name,
-          phone: doctorWithSecondary.phone,
-          secondaryPhone: doctorWithSecondary.secondaryPhone,
-          profilePhoto: doctorWithSecondary.profilePhoto,
-          status: doctorWithSecondary.status,
-          activeStatus: doctorWithSecondary.activeStatus,
-          registrationStep: doctorWithSecondary.registrationStep,
+          id: doctorWithEmployee._id,
+          name: doctorWithEmployee.name,
+          phone: doctorWithEmployee.phone,
+          profilePhoto: doctorWithEmployee.profilePhoto,
+          status: doctorWithEmployee.status,
+          activeStatus: doctorWithEmployee.activeStatus,
+          registrationStep: doctorWithEmployee.registrationStep,
         },
       });
     }

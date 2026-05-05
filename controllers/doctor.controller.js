@@ -356,7 +356,7 @@ export const getDoctorSlots = async (req, res) => {
 export const getDoctorProfile = async (req, res) => {
   try {
     const doctor = await User.findById(req.user._id).select(
-      "-password -otp -otpExpiry -secondaryOtp -secondaryOtpExpiry"
+      "-password -otp -otpExpiry -employees.otp -employees.otpExpiry"
     );
 
     if (!doctor) {
@@ -541,28 +541,101 @@ export const toggleDutyStatus = async (req, res) => {
   }
 };
 
-// PATCH /api/doctor/secondary-phone
-export const setSecondaryPhone = async (req, res) => {
+// POST /api/doctor/employees
+export const addEmployee = async (req, res) => {
   try {
-    const doctorId = req.user._id;
-    const { secondaryPhone } = req.body;
+    const doctor = await User.findById(req.user._id);
+    const { name, phone } = req.body;
 
-    if (secondaryPhone === undefined) {
-      return res.status(400).json({ success: false, message: "secondaryPhone is required" });
+    if (!name || !phone) {
+      return res.status(400).json({ success: false, message: "name and phone are required" });
     }
 
-    // if removing, skip conflict check
-    if (secondaryPhone !== "") {
-      const conflict = await User.findOne({ phone: secondaryPhone });
-      if (conflict) {
-        return res.status(400).json({ success: false, message: "This number is already registered as a doctor account" });
-      }
+    if (doctor.employees.length >= 2) {
+      return res.status(400).json({ success: false, message: "Maximum 2 employees allowed" });
     }
 
-    await User.findByIdAndUpdate(doctorId, { secondaryPhone });
+    const alreadyAdded = doctor.employees.find((e) => e.phone === phone);
+    if (alreadyAdded) {
+      return res.status(400).json({ success: false, message: "This phone is already added as an employee" });
+    }
 
-    const message = secondaryPhone === "" ? "Secondary phone removed" : "Secondary phone saved";
-    res.status(200).json({ success: true, message, secondaryPhone });
+    const conflictDoctor = await User.findOne({ phone });
+    if (conflictDoctor) {
+      return res.status(400).json({ success: false, message: "This number is already registered as a doctor account" });
+    }
+
+    const conflictEmployee = await User.findOne({ "employees.phone": phone });
+    if (conflictEmployee) {
+      return res.status(400).json({ success: false, message: "This number is already an employee of another doctor" });
+    }
+
+    const { generateOtp } = await import("../utils/generateOtp.js");
+    const fixedOtp = process.env.FIXED_OTP?.trim();
+    const otp = fixedOtp || generateOtp();
+
+    doctor.employees.push({
+      name,
+      phone,
+      otp,
+      otpExpiry: new Date(Date.now() + 5 * 60 * 1000),
+      verified: false,
+    });
+
+    await doctor.save();
+    console.log("Employee setup OTP:", otp);
+
+    res.status(201).json({ success: true, message: "OTP sent to employee phone" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/doctor/employees/verify
+export const verifyEmployeeOtp = async (req, res) => {
+  try {
+    const doctor = await User.findById(req.user._id);
+    const { phone, otp } = req.body;
+
+    if (!phone || !otp) {
+      return res.status(400).json({ success: false, message: "phone and otp are required" });
+    }
+
+    const emp = doctor.employees.find((e) => e.phone === phone);
+    if (!emp) {
+      return res.status(404).json({ success: false, message: "Employee not found" });
+    }
+
+    if (String(emp.otp) !== String(otp) || emp.otpExpiry < new Date()) {
+      return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
+    }
+
+    emp.verified = true;
+    emp.otp = null;
+    emp.otpExpiry = null;
+    await doctor.save();
+
+    res.json({ success: true, message: "Employee verified successfully", employee: { name: emp.name, phone: emp.phone } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// DELETE /api/doctor/employees/:phone
+export const removeEmployee = async (req, res) => {
+  try {
+    const doctor = await User.findById(req.user._id);
+    const { phone } = req.params;
+
+    const index = doctor.employees.findIndex((e) => e.phone === phone);
+    if (index === -1) {
+      return res.status(404).json({ success: false, message: "Employee not found" });
+    }
+
+    doctor.employees.splice(index, 1);
+    await doctor.save();
+
+    res.json({ success: true, message: "Employee removed" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

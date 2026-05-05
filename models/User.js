@@ -20,9 +20,22 @@ const userSchema = new mongoose.Schema(
     otpExpiry: Date,
     otpVerified: { type: Boolean, default: false },
 
-    secondaryPhone: { type: String, default: "" },
-    secondaryOtp: String,
-    secondaryOtpExpiry: Date,
+    employees: {
+      type: [
+        {
+          name: { type: String, required: true },
+          phone: { type: String, required: true },
+          otp: String,
+          otpExpiry: Date,
+          verified: { type: Boolean, default: false },
+        },
+      ],
+      default: [],
+      validate: {
+        validator: (arr) => arr.length <= 2,
+        message: "Maximum 2 employees allowed",
+      },
+    },
 
     experience: Number,
 
