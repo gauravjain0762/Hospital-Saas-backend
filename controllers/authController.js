@@ -452,7 +452,7 @@ export const getQualifications = async (req, res) => {
 
 export const registerStep4 = async (req, res) => {
   try {
-    const { upiId } = req.body;
+    const { upiId, paymentMethod } = req.body;
 
     const user = await User.findById(req.user._id);
 
@@ -462,24 +462,35 @@ export const registerStep4 = async (req, res) => {
       });
     }
 
-    if (!upiId) {
+    const validMethods = ["cash", "online", "both"];
+    if (!paymentMethod || !validMethods.includes(paymentMethod)) {
       return res.status(400).json({
-        message: "UPI ID is required",
+        message: "Payment method is required and must be cash, online, or both",
       });
     }
 
-    const upiRegex = /^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/;
-    if (!upiRegex.test(upiId)) {
-      return res.status(400).json({
-        message: "Invalid UPI ID format",
-      });
+    const requiresUpi = paymentMethod === "online" || paymentMethod === "both";
+
+    if (requiresUpi) {
+      if (!upiId) {
+        return res.status(400).json({
+          message: "UPI ID is required for online payment method",
+        });
+      }
+
+      const upiRegex = /^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/;
+      if (!upiRegex.test(upiId)) {
+        return res.status(400).json({
+          message: "Invalid UPI ID format",
+        });
+      }
     }
 
     const qrCodeUrl = req.file?.path || req.files?.qrCode?.[0]?.path || "";
 
     user.paymentDetails = {
-      upiId,
-      qrCode: qrCodeUrl,
+      paymentMethod,
+      ...(requiresUpi && { upiId, qrCode: qrCodeUrl }),
     };
 
     user.rejections = user.rejections.filter(r => r.step !== 4);

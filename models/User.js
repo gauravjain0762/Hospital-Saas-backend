@@ -108,6 +108,10 @@ rejections: {
     },
 
     paymentDetails: {
+      paymentMethod: {
+        type: String,
+        enum: ["cash", "online", "both"],
+      },
       upiId: String,
       qrCode: String,
     },
