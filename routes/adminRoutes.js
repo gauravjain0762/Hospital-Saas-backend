@@ -18,6 +18,8 @@ import {
     getAllPatientReports,
     updatePatientReportStatus,
     getPaymentsSummary,
+    grantTokens,
+    getDoctorTokenPlan,
 } from "../controllers/adminController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -71,5 +73,9 @@ router.patch("/reports/:ticketId/status", updateReportStatus);
 // patient reports / tickets
 router.get("/patient-reports", getAllPatientReports);
 router.patch("/patient-reports/:ticketId/status", updatePatientReportStatus);
+
+// token management
+router.post("/doctors/:id/grant-tokens", grantTokens);
+router.get("/doctors/:id/token-plan", getDoctorTokenPlan);
 
 export default router;

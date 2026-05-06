@@ -6,6 +6,7 @@ import Report from "../models/report.model.js";
 import admin from "../utils/firebase.js";
 import xlsx from "xlsx";
 import jwt from "jsonwebtoken";
+import { checkAndDeductToken } from "../utils/tokenGuard.js";
 
 export const getTodayQueue = async (req, res) => {
   try {
@@ -861,6 +862,11 @@ export const createWalkInAppointment = async (req, res) => {
       return res.status(400).json({ success: false, message: "fullName, phone, paymentMethod, date and slot are required" });
     }
 
+    const tokenResult = await checkAndDeductToken(doctorId);
+    if (!tokenResult.allowed) {
+      return res.status(403).json({ success: false, message: tokenResult.reason });
+    }
+
     const doctor = await User.findById(doctorId);
     if (!doctor) {
       return res.status(404).json({ success: false, message: "Doctor not found" });
@@ -920,6 +926,7 @@ export const createWalkInAppointment = async (req, res) => {
       appointmentId,
       consultationFee,
       paymentStatus,
+      remainingTokens: tokenResult.remainingTokens,
       appointment,
     });
 
@@ -1063,6 +1070,42 @@ export const updateStep3 = async (req, res) => {
         availability: doctor.availability,
         maxPatientsPerSlot: doctor.maxPatientsPerSlot,
       },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/doctor/token-plan
+export const getTokenPlan = async (req, res) => {
+  try {
+    const doctor = await User.findById(req.user._id).select("tokenPlan");
+
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: "Doctor not found" });
+    }
+
+    const plan = doctor.tokenPlan;
+    const now = new Date();
+    const hasPlan = !!plan?.validUntil;
+    const isExpired = hasPlan && plan.validUntil < now;
+    const remaining = hasPlan ? Math.max(0, plan.totalTokens - plan.usedTokens) : 0;
+
+    res.status(200).json({
+      success: true,
+      hasPlan,
+      tokenPlan: hasPlan
+        ? {
+            planType: plan.planType,
+            totalTokens: plan.totalTokens,
+            usedTokens: plan.usedTokens,
+            remainingTokens: remaining,
+            validFrom: plan.validFrom,
+            validUntil: plan.validUntil,
+            isExpired,
+            isActive: !isExpired && remaining > 0,
+          }
+        : null,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

@@ -144,6 +144,15 @@ rejections: {
       enum: ["doctor", "clinic", "admin"],
       default: "doctor",
     },
+
+    tokenPlan: {
+      totalTokens: { type: Number, default: 0 },
+      usedTokens: { type: Number, default: 0 },
+      validFrom: { type: Date, default: null },
+      validUntil: { type: Date, default: null },
+      planType: { type: String, enum: ["free"], default: "free" },
+      grantedAt: { type: Date, default: null },
+    },
   },
   { timestamps: true }
 );

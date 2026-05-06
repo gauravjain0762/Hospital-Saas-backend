@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import Appointment from "../models/appointment.model.js";
 import Queue from "../models/queue.model.js";
 import PatientReport from "../models/patientReport.model.js";
+import { checkAndDeductToken } from "../utils/tokenGuard.js";
 
 //OTP
 const OTP = "123456"; // For testing purposes, use a fixed OTP
@@ -376,6 +377,11 @@ export const bookAppointment = async (req, res) => {
         success: false,
         message: "Doctor not found",
       });
+    }
+
+    const tokenResult = await checkAndDeductToken(doctorId);
+    if (!tokenResult.allowed) {
+      return res.status(403).json({ success: false, message: tokenResult.reason });
     }
 
     // Validate slot against doctor availability

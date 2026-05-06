@@ -552,6 +552,90 @@ export const getAllAppointments = async (req, res) => {
   }
 };
 
+// POST /api/admin/doctors/:id/grant-tokens
+export const grantTokens = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tokens, days } = req.body;
+
+    if (!tokens || !days || Number(tokens) < 1 || Number(days) < 1) {
+      return res.status(400).json({ success: false, message: "tokens and days are required and must be at least 1" });
+    }
+
+    const doctor = await User.findOne({ _id: id, role: "doctor" });
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: "Doctor not found" });
+    }
+
+    const now = new Date();
+    const validUntil = new Date(now.getTime() + Number(days) * 24 * 60 * 60 * 1000);
+
+    doctor.tokenPlan = {
+      totalTokens: Number(tokens),
+      usedTokens: 0,
+      validFrom: now,
+      validUntil,
+      planType: "free",
+      grantedAt: now,
+    };
+
+    await doctor.save();
+
+    res.status(200).json({
+      success: true,
+      message: `${tokens} free tokens granted to Dr. ${doctor.name} for ${days} day(s)`,
+      tokenPlan: {
+        planType: doctor.tokenPlan.planType,
+        totalTokens: doctor.tokenPlan.totalTokens,
+        usedTokens: doctor.tokenPlan.usedTokens,
+        remainingTokens: doctor.tokenPlan.totalTokens,
+        validFrom: doctor.tokenPlan.validFrom,
+        validUntil: doctor.tokenPlan.validUntil,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// GET /api/admin/doctors/:id/token-plan
+export const getDoctorTokenPlan = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const doctor = await User.findOne({ _id: id, role: "doctor" }).select("name tokenPlan");
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: "Doctor not found" });
+    }
+
+    const plan = doctor.tokenPlan;
+    const now = new Date();
+    const hasPlan = !!plan?.validUntil;
+    const isExpired = hasPlan && plan.validUntil < now;
+    const remaining = hasPlan ? Math.max(0, plan.totalTokens - plan.usedTokens) : 0;
+
+    res.status(200).json({
+      success: true,
+      doctor: { id: doctor._id, name: doctor.name },
+      hasPlan,
+      tokenPlan: hasPlan
+        ? {
+            planType: plan.planType,
+            totalTokens: plan.totalTokens,
+            usedTokens: plan.usedTokens,
+            remainingTokens: remaining,
+            validFrom: plan.validFrom,
+            validUntil: plan.validUntil,
+            isExpired,
+            isActive: !isExpired && remaining > 0,
+          }
+        : null,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // PATCH /api/admin/reports/:ticketId/status — open or close a ticket
 export const updateReportStatus = async (req, res) => {
   try {
