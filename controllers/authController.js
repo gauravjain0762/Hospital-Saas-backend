@@ -139,7 +139,7 @@ export const verifyOtp = async (req, res) => {
         message: "OTP verified",
         token,
         isEmployee: true,
-        employee: { name: emp.name, phone: emp.phone },
+        employee: { name: emp.name, phone: emp.phone, accountType: emp.accountType },
         user: {
           id: doctorWithEmployee._id,
           name: doctorWithEmployee.name,

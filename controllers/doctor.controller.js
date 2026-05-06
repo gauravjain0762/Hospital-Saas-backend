@@ -549,6 +549,7 @@ export const getEmployees = async (req, res) => {
       name: e.name,
       phone: e.phone,
       verified: e.verified,
+      accountType: e.accountType,
     }));
     res.json({ success: true, employees });
   } catch (error) {

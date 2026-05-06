@@ -28,6 +28,7 @@ const userSchema = new mongoose.Schema(
           otp: String,
           otpExpiry: Date,
           verified: { type: Boolean, default: false },
+          accountType: { type: String, default: "employee" },
         },
       ],
       default: [],
