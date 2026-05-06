@@ -314,9 +314,10 @@ export const getDoctorById = async (req, res) => {
         {
           id: doctor._id,
           name: doctor.name,
-          profilePhoto: doctor.profilePhoto,
+          profilePhoto: doctor.profilePhoto || null,
           experience: doctor.experience,
           gender: doctor.gender,
+          rating: doctor.clinic?.rating ?? 0,
           services: doctor.services,
           qualifications: doctor.qualifications,
           awards: doctor.awards,
