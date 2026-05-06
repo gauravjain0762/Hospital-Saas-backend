@@ -862,11 +862,6 @@ export const createWalkInAppointment = async (req, res) => {
       return res.status(400).json({ success: false, message: "fullName, phone, paymentMethod, date and slot are required" });
     }
 
-    const tokenResult = await checkAndDeductToken(doctorId);
-    if (!tokenResult.allowed) {
-      return res.status(403).json({ success: false, message: tokenResult.reason });
-    }
-
     const doctor = await User.findById(doctorId);
     if (!doctor) {
       return res.status(404).json({ success: false, message: "Doctor not found" });
@@ -926,7 +921,6 @@ export const createWalkInAppointment = async (req, res) => {
       appointmentId,
       consultationFee,
       paymentStatus,
-      remainingTokens: tokenResult.remainingTokens,
       appointment,
     });
 
