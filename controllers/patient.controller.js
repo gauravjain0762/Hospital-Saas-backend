@@ -285,7 +285,7 @@ export const getDoctorById = async (req, res) => {
       _id: req.params.id,
       role: "doctor",
       status: "approved",
-    }).select("-password -otp -otpExpiry -employees.otp -employees.otpExpiry -documents");
+    }).select("-password -employees.otp -employees.otpExpiry");
 
     if (!doctor) {
       return res.status(404).json({
@@ -296,43 +296,7 @@ export const getDoctorById = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      clinic: {
-        clinicName: doctor.clinic?.clinicName || "",
-        about: doctor.clinic?.about || "",
-        address: doctor.clinic?.address || "",
-        city: doctor.clinic?.city || "",
-        state: doctor.clinic?.state || "",
-        pincode: doctor.clinic?.pincode || "",
-        consultationFee: doctor.clinic?.consultationFee ?? 0,
-        freeFollowupDays: doctor.clinic?.freeFollowupDays ?? 0,
-        rating: doctor.clinic?.rating ?? 0,
-        latitude: doctor.clinic?.latitude ?? null,
-        longitude: doctor.clinic?.longitude ?? null,
-        photos: doctor.clinic?.photos || [],
-        googleBusinessLink: doctor.clinic?.googleBusinessLink || "",
-      },
-      doctors: [
-        {
-          id: doctor._id,
-          name: doctor.name,
-          profilePhoto: doctor.profilePhoto || null,
-          experience: doctor.experience,
-          gender: doctor.gender,
-          rating: doctor.clinic?.rating ?? 0,
-          services: doctor.services,
-          qualifications: doctor.qualifications,
-          awards: doctor.awards,
-          achievements: doctor.achievements,
-          doctorAvailable: doctor.doctorAvailable,
-          activeStatus: doctor.activeStatus,
-          availability: doctor.availability,
-          maxPatientsPerSlot: doctor.maxPatientsPerSlot,
-          paymentDetails: {
-            paymentMethod: doctor.paymentDetails?.paymentMethod,
-            upiId: doctor.paymentDetails?.upiId,
-          },
-        },
-      ],
+      doctor,
     });
 
   } catch (error) {
