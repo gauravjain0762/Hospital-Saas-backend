@@ -21,6 +21,7 @@ import { getTodayQueue,
     createWalkInAppointment,
     getDoctorSettings,
     updateAvailability,
+    updateMaxPatientsPerSlot,
     updateServices,
     deleteDoctorAccount,
     getStep3,
@@ -52,6 +53,7 @@ router.get("/settings", protect, getDoctorSettings);
 router.get("/step3", protect, getStep3);
 router.patch("/step3", protect, updateStep3);
 router.patch("/settings/availability", protect, updateAvailability);
+router.patch("/settings/max-patients", protect, updateMaxPatientsPerSlot);
 router.patch("/settings/services", protect, updateServices);
 router.post("/reports", protect, submitReport);
 router.delete("/account", protect, deleteDoctorAccount);

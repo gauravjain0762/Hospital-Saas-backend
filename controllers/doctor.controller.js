@@ -948,6 +948,37 @@ export const getDoctorSettings = async (req, res) => {
 };
 
 // PATCH /api/doctor/settings/availability
+// PATCH /api/doctor/settings/max-patients
+export const updateMaxPatientsPerSlot = async (req, res) => {
+  try {
+    const { maxPatientsPerSlot } = req.body;
+
+    if (maxPatientsPerSlot == null) {
+      return res.status(400).json({ success: false, message: "maxPatientsPerSlot is required" });
+    }
+
+    if (Number(maxPatientsPerSlot) < 1) {
+      return res.status(400).json({ success: false, message: "maxPatientsPerSlot must be at least 1" });
+    }
+
+    const doctor = await User.findByIdAndUpdate(
+      req.user._id,
+      { maxPatientsPerSlot: Number(maxPatientsPerSlot) },
+      { new: true, select: "maxPatientsPerSlot" }
+    );
+
+    if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found" });
+
+    res.status(200).json({
+      success: true,
+      message: "Max patients per slot updated",
+      maxPatientsPerSlot: doctor.maxPatientsPerSlot,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const updateAvailability = async (req, res) => {
   try {
     const { availability } = req.body;
