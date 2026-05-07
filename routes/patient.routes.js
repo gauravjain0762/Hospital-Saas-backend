@@ -10,6 +10,7 @@ import {
     getCategories,
     getDoctors,
     getDoctorById,
+    getDoctorByIdFormatted,
     bookAppointment,
     getMyAppointments,
     cancelAppointment,
@@ -44,6 +45,8 @@ router.get("/categories", getCategories);
 router.get("/doctors", getDoctors);
 
 router.get("/doctors/:id", getDoctorById);
+
+router.get("/doctorsbyid/:id", getDoctorByIdFormatted);
 
 router.post("/book-appointment", patientAuth, bookAppointment);
 
