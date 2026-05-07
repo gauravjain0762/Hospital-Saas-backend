@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import Appointment from "../models/appointment.model.js";
 import Queue from "../models/queue.model.js";
 import PatientReport from "../models/patientReport.model.js";
+import Review from "../models/review.model.js";
 import { checkAndDeductToken } from "../utils/tokenGuard.js";
 
 //OTP
@@ -1060,6 +1061,76 @@ export const deletePatientAccount = async (req, res) => {
       success: true,
       message: "Account deleted successfully",
       reason: reason || null,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/patient/doctors/:id/review
+export const submitDoctorReview = async (req, res) => {
+  try {
+    const patientId = req.patient.id;
+    const doctorId = req.params.id;
+    const { rating, review } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ success: false, message: "Rating must be between 1 and 5" });
+    }
+
+    const doctor = await User.findOne({ _id: doctorId, role: "doctor", status: "approved" });
+    if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found" });
+
+    const patient = await Patient.findById(patientId);
+    const patientName = patient?.fullName || "Anonymous";
+
+    const existing = await Review.findOne({ doctorId, patientId });
+    if (existing) {
+      existing.rating = rating;
+      existing.review = review || "";
+      existing.patientName = patientName;
+      await existing.save();
+    } else {
+      await Review.create({ doctorId, patientId, patientName, rating, review: review || "" });
+    }
+
+    // recalculate doctor's average rating
+    const allReviews = await Review.find({ doctorId });
+    const avg = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
+    await User.findByIdAndUpdate(doctorId, { "clinic.rating": parseFloat(avg.toFixed(1)) });
+
+    res.status(200).json({ success: true, message: "Review submitted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/patient/doctors/:id/reviews
+export const getDoctorReviews = async (req, res) => {
+  try {
+    const doctorId = req.params.id;
+
+    const doctor = await User.findOne({ _id: doctorId, role: "doctor", status: "approved" });
+    if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found" });
+
+    const reviews = await Review.find({ doctorId }).sort({ createdAt: -1 });
+
+    const totalRatings = reviews.length;
+    const averageRating = totalRatings
+      ? parseFloat((reviews.reduce((sum, r) => sum + r.rating, 0) / totalRatings).toFixed(1))
+      : 0;
+
+    res.status(200).json({
+      success: true,
+      averageRating,
+      totalRatings,
+      reviews: reviews.map((r) => ({
+        id: r._id,
+        patientName: r.patientName,
+        rating: r.rating,
+        review: r.review,
+        date: r.createdAt,
+      })),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

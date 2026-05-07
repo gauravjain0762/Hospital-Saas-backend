@@ -3,6 +3,7 @@ import Appointment from "../models/appointment.model.js";
 import User from "../models/User.js";
 import Patient from "../models/patient.model.js";
 import Report from "../models/report.model.js";
+import Review from "../models/review.model.js";
 import admin from "../utils/firebase.js";
 import xlsx from "xlsx";
 import jwt from "jsonwebtoken";
@@ -1100,6 +1101,35 @@ export const getTokenPlan = async (req, res) => {
             isActive: !isExpired && remaining > 0,
           }
         : null,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/doctor/reviews
+export const getMyReviewsAsDoctor = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+
+    const reviews = await Review.find({ doctorId }).sort({ createdAt: -1 });
+
+    const totalRatings = reviews.length;
+    const averageRating = totalRatings
+      ? parseFloat((reviews.reduce((sum, r) => sum + r.rating, 0) / totalRatings).toFixed(1))
+      : 0;
+
+    res.status(200).json({
+      success: true,
+      averageRating,
+      totalRatings,
+      reviews: reviews.map((r) => ({
+        id: r._id,
+        patientName: r.patientName,
+        rating: r.rating,
+        review: r.review,
+        date: r.createdAt,
+      })),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

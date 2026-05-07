@@ -26,6 +26,7 @@ import { getTodayQueue,
     getStep3,
     updateStep3,
     getTokenPlan,
+    getMyReviewsAsDoctor,
  } from "../controllers/doctor.controller.js";
 
 router.get("/profile", protect, getDoctorProfile);
@@ -52,6 +53,7 @@ router.post("/reports", protect, submitReport);
 router.delete("/account", protect, deleteDoctorAccount);
 router.get("/reports", protect, getMyReports);
 router.get("/token-plan", protect, getTokenPlan);
+router.get("/my-reviews", protect, getMyReviewsAsDoctor);
 
 
 export default router;

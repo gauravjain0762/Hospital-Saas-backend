@@ -23,6 +23,8 @@ import {
     getMyReports,
     deletePatientAccount,
     toggleNotifications,
+    submitDoctorReview,
+    getDoctorReviews,
 } from "../controllers/patient.controller.js";
 
 import patientAuth from "../middleware/patientAuth.js";
@@ -68,5 +70,8 @@ router.post("/report", patientAuth, submitReport);
 router.get("/reports", patientAuth, getMyReports);
 router.patch("/notifications-toggle", patientAuth, toggleNotifications);
 router.delete("/account", patientAuth, deletePatientAccount);
+
+router.post("/doctors/:id/review", patientAuth, submitDoctorReview);
+router.get("/doctors/:id/reviews", getDoctorReviews);
 
 export default router; // ✅ IMPORTANT
