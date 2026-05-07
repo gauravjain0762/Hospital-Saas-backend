@@ -1083,7 +1083,8 @@ export const getTokenPlan = async (req, res) => {
 
     const plan = doctor.tokenPlan;
     const now = new Date();
-    const hasPlan = !!plan?.planId;
+    // free tokens have no planId — check validUntil or pay_per_token pricePerToken
+    const hasPlan = !!(plan?.validUntil || plan?.planType === "pay_per_token");
     const balance = doctor.wallet?.balance ?? 0;
 
     let isActive = false;
