@@ -27,6 +27,10 @@ import { getTodayQueue,
     updateStep3,
     getTokenPlan,
     getMyReviewsAsDoctor,
+    getAvailablePlans,
+    buyPlan,
+    getWallet,
+    rechargeWallet,
  } from "../controllers/doctor.controller.js";
 
 router.get("/profile", protect, getDoctorProfile);
@@ -54,6 +58,10 @@ router.delete("/account", protect, deleteDoctorAccount);
 router.get("/reports", protect, getMyReports);
 router.get("/token-plan", protect, getTokenPlan);
 router.get("/my-reviews", protect, getMyReviewsAsDoctor);
+router.get("/plans", protect, getAvailablePlans);
+router.post("/plans/buy", protect, buyPlan);
+router.get("/wallet", protect, getWallet);
+router.post("/wallet/recharge", protect, rechargeWallet);
 
 
 export default router;

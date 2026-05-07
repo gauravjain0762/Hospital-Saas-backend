@@ -13,25 +13,27 @@ const planSchema = new mongoose.Schema(
     },
     planType: {
       type: String,
-      enum: ["monthly_unlimited", "token_pack"],
+      enum: ["monthly_unlimited", "pay_per_token"],
       required: true,
     },
+
+    // monthly_unlimited: fixed monthly price
     price: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    // null means unlimited (used for monthly_unlimited)
-    tokens: {
       type: Number,
       default: null,
     },
-    // validity in days: 7 = week, 15 = 15 days, 30 = month
+    // monthly_unlimited: how many days the plan lasts
     validityDays: {
       type: Number,
-      required: true,
-      min: 1,
+      default: null,
     },
+
+    // pay_per_token: rupees deducted per appointment token
+    pricePerToken: {
+      type: Number,
+      default: null,
+    },
+
     isActive: {
       type: Boolean,
       default: true,

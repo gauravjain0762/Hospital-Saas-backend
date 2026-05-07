@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import Patient from "../models/patient.model.js";
 import Report from "../models/report.model.js";
 import Review from "../models/review.model.js";
+import Plan from "../models/plan.model.js";
 import admin from "../utils/firebase.js";
 import xlsx from "xlsx";
 import jwt from "jsonwebtoken";
@@ -1074,18 +1075,35 @@ export const updateStep3 = async (req, res) => {
 // GET /api/doctor/token-plan
 export const getTokenPlan = async (req, res) => {
   try {
-    const doctor = await User.findById(req.user._id).select("tokenPlan").populate("tokenPlan.planId", "name planType price validityDays");
+    const doctor = await User.findById(req.user._id)
+      .select("tokenPlan wallet")
+      .populate("tokenPlan.planId", "name planType price pricePerToken validityDays");
 
-    if (!doctor) {
-      return res.status(404).json({ success: false, message: "Doctor not found" });
-    }
+    if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found" });
 
     const plan = doctor.tokenPlan;
     const now = new Date();
-    const hasPlan = !!plan?.validUntil;
-    const isExpired = hasPlan && plan.validUntil < now;
-    const remaining = plan?.isUnlimited ? null : (hasPlan ? Math.max(0, plan.totalTokens - plan.usedTokens) : 0);
-    const isActive = hasPlan && !isExpired && (plan.isUnlimited || remaining > 0);
+    const hasPlan = !!plan?.planId;
+    const balance = doctor.wallet?.balance ?? 0;
+
+    let isActive = false;
+    let isExpired = false;
+    let tokensAvailable = null;
+
+    if (hasPlan) {
+      if (plan.planType === "pay_per_token") {
+        tokensAvailable = plan.pricePerToken ? Math.floor(balance / plan.pricePerToken) : 0;
+        isActive = balance >= (plan.pricePerToken ?? 0);
+      } else if (plan.planType === "monthly_unlimited") {
+        isExpired = plan.validUntil ? plan.validUntil < now : false;
+        isActive = !isExpired;
+      } else {
+        // free
+        isExpired = plan.validUntil ? plan.validUntil < now : false;
+        isActive = !isExpired && plan.usedTokens < plan.totalTokens;
+        tokensAvailable = Math.max(0, plan.totalTokens - plan.usedTokens);
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -1095,15 +1113,160 @@ export const getTokenPlan = async (req, res) => {
             planId: plan.planId,
             planType: plan.planType,
             isUnlimited: plan.isUnlimited,
-            totalTokens: plan.isUnlimited ? null : plan.totalTokens,
+            pricePerToken: plan.pricePerToken,
             usedTokens: plan.usedTokens,
-            remainingTokens: remaining,
             validFrom: plan.validFrom,
             validUntil: plan.validUntil,
             isExpired,
             isActive,
+            // pay_per_token
+            walletBalance: plan.planType === "pay_per_token" ? balance : undefined,
+            tokensAvailable: plan.planType !== "monthly_unlimited" ? tokensAvailable : undefined,
           }
         : null,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/doctor/wallet
+export const getWallet = async (req, res) => {
+  try {
+    const doctor = await User.findById(req.user._id).select("wallet tokenPlan");
+    if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found" });
+
+    const balance = doctor.wallet?.balance ?? 0;
+    const ppt = doctor.tokenPlan?.pricePerToken;
+
+    res.status(200).json({
+      success: true,
+      walletBalance: balance,
+      pricePerToken: ppt ?? null,
+      tokensAvailable: ppt ? Math.floor(balance / ppt) : null,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/doctor/wallet/recharge
+export const rechargeWallet = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+    const { amount } = req.body;
+
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ success: false, message: "amount must be greater than 0" });
+    }
+
+    const doctor = await User.findOneAndUpdate(
+      { _id: doctorId, "tokenPlan.planType": "pay_per_token" },
+      { $inc: { "wallet.balance": Number(amount) } },
+      { new: true, select: "wallet tokenPlan" }
+    );
+
+    if (!doctor) {
+      return res.status(400).json({ success: false, message: "You must have an active pay_per_token plan to recharge" });
+    }
+
+    const balance = doctor.wallet.balance;
+    const ppt = doctor.tokenPlan.pricePerToken;
+
+    res.status(200).json({
+      success: true,
+      message: `₹${amount} added to your wallet`,
+      walletBalance: balance,
+      tokensAvailable: ppt ? Math.floor(balance / ppt) : null,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/doctor/plans  — doctor sees all active plans
+export const getAvailablePlans = async (req, res) => {
+  try {
+    const plans = await Plan.find({ isActive: true }).sort({ planType: 1, createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      plans: plans.map((p) => ({
+        id: p._id,
+        name: p.name,
+        description: p.description,
+        planType: p.planType,
+        // monthly_unlimited
+        price: p.planType === "monthly_unlimited" ? p.price : undefined,
+        validityDays: p.planType === "monthly_unlimited" ? p.validityDays : undefined,
+        // pay_per_token
+        pricePerToken: p.planType === "pay_per_token" ? p.pricePerToken : undefined,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/doctor/plans/buy
+// monthly_unlimited: { planId }
+// pay_per_token:     { planId, initialAmount }  (initialAmount added to wallet)
+export const buyPlan = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+    const { planId, initialAmount } = req.body;
+
+    if (!planId) return res.status(400).json({ success: false, message: "planId is required" });
+
+    const plan = await Plan.findOne({ _id: planId, isActive: true });
+    if (!plan) return res.status(404).json({ success: false, message: "Plan not found or inactive" });
+
+    const doctor = await User.findById(doctorId);
+    if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found" });
+
+    const now = new Date();
+    const isUnlimited = plan.planType === "monthly_unlimited";
+    const validUntil = isUnlimited
+      ? new Date(now.getTime() + plan.validityDays * 24 * 60 * 60 * 1000)
+      : null;
+
+    doctor.tokenPlan = {
+      planId: plan._id,
+      planType: plan.planType,
+      isUnlimited,
+      validFrom: isUnlimited ? now : null,
+      validUntil,
+      totalTokens: 0,
+      pricePerToken: plan.planType === "pay_per_token" ? plan.pricePerToken : null,
+      usedTokens: 0,
+      grantedAt: now,
+    };
+
+    // For pay_per_token, add initial recharge to wallet
+    if (plan.planType === "pay_per_token" && initialAmount && Number(initialAmount) > 0) {
+      doctor.wallet = { balance: (doctor.wallet?.balance ?? 0) + Number(initialAmount) };
+    }
+
+    await doctor.save();
+
+    const balance = doctor.wallet?.balance ?? 0;
+
+    res.status(200).json({
+      success: true,
+      message: `Plan "${plan.name}" activated successfully`,
+      tokenPlan: {
+        planId: plan._id,
+        planName: plan.name,
+        planType: plan.planType,
+        isUnlimited,
+        pricePerToken: doctor.tokenPlan.pricePerToken,
+        validFrom: doctor.tokenPlan.validFrom,
+        validUntil: doctor.tokenPlan.validUntil,
+        ...(plan.planType === "pay_per_token" && {
+          walletBalance: balance,
+          tokensAvailable: Math.floor(balance / plan.pricePerToken),
+        }),
+      },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

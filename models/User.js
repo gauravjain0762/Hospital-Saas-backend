@@ -145,20 +145,28 @@ rejections: {
       default: "doctor",
     },
 
+    wallet: {
+      balance: { type: Number, default: 0 },
+    },
+
     tokenPlan: {
       planId: { type: mongoose.Schema.Types.ObjectId, ref: "Plan", default: null },
       planType: {
         type: String,
-        enum: ["free", "monthly_unlimited", "token_pack"],
+        enum: ["free", "monthly_unlimited", "pay_per_token"],
         default: "free",
       },
+      // monthly_unlimited fields
       isUnlimited: { type: Boolean, default: false },
-      totalTokens: { type: Number, default: 0 },
-      usedTokens: { type: Number, default: 0 },
       validFrom: { type: Date, default: null },
       validUntil: { type: Date, default: null },
+      // free / monthly_unlimited token tracking
+      totalTokens: { type: Number, default: 0 },
+      // pay_per_token: cost per appointment deducted from wallet
+      pricePerToken: { type: Number, default: null },
+      // all plans: usage tracking
+      usedTokens: { type: Number, default: 0 },
       grantedAt: { type: Date, default: null },
-      pricePaid: { type: Number, default: 0 },
     },
   },
   { timestamps: true }

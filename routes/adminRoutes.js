@@ -26,6 +26,7 @@ import {
     deletePlan,
     assignPlanToDoctor,
     getAllAssignedPlans,
+    adminAddWalletBalance,
 } from "../controllers/adminController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -93,5 +94,6 @@ router.delete("/plans/:id", deletePlan);
 // assign plan to doctor
 router.post("/doctors/:id/assign-plan", assignPlanToDoctor);
 router.get("/plans/assigned", getAllAssignedPlans);
+router.post("/doctors/:id/wallet/add", adminAddWalletBalance);
 
 export default router;

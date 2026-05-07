@@ -646,27 +646,32 @@ export const getDoctorTokenPlan = async (req, res) => {
 // POST /api/admin/plans
 export const createPlan = async (req, res) => {
   try {
-    const { name, description, planType, price, tokens, validityDays } = req.body;
+    const { name, description, planType, price, pricePerToken, validityDays } = req.body;
 
-    if (!name || !planType || price == null || !validityDays) {
-      return res.status(400).json({ success: false, message: "name, planType, price, and validityDays are required" });
+    if (!name || !planType) {
+      return res.status(400).json({ success: false, message: "name and planType are required" });
     }
 
-    if (!["monthly_unlimited", "token_pack"].includes(planType)) {
-      return res.status(400).json({ success: false, message: "planType must be monthly_unlimited or token_pack" });
+    if (!["monthly_unlimited", "pay_per_token"].includes(planType)) {
+      return res.status(400).json({ success: false, message: "planType must be monthly_unlimited or pay_per_token" });
     }
 
-    if (planType === "token_pack" && (!tokens || Number(tokens) < 1)) {
-      return res.status(400).json({ success: false, message: "tokens is required for token_pack plans" });
+    if (planType === "monthly_unlimited" && (price == null || !validityDays)) {
+      return res.status(400).json({ success: false, message: "price and validityDays are required for monthly_unlimited" });
+    }
+
+    if (planType === "pay_per_token" && (pricePerToken == null || Number(pricePerToken) < 1)) {
+      return res.status(400).json({ success: false, message: "pricePerToken is required for pay_per_token plans" });
     }
 
     const plan = await Plan.create({
       name,
       description: description || "",
       planType,
-      price: Number(price),
-      tokens: planType === "monthly_unlimited" ? null : Number(tokens),
-      validityDays: Number(validityDays),
+      price: planType === "monthly_unlimited" ? Number(price) : null,
+      pricePerToken: planType === "pay_per_token" ? Number(pricePerToken) : null,
+      // null validityDays = tokens never expire (pay_per_token only)
+      validityDays: validityDays != null ? Number(validityDays) : null,
     });
 
     res.status(201).json({ success: true, plan });
@@ -689,17 +694,17 @@ export const getPlans = async (req, res) => {
 export const updatePlan = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, price, tokens, validityDays, isActive } = req.body;
+    const { name, description, price, pricePerToken, validityDays, isActive } = req.body;
 
     const plan = await Plan.findById(id);
     if (!plan) return res.status(404).json({ success: false, message: "Plan not found" });
 
     if (name !== undefined) plan.name = name;
     if (description !== undefined) plan.description = description;
-    if (price !== undefined) plan.price = Number(price);
-    if (validityDays !== undefined) plan.validityDays = Number(validityDays);
     if (isActive !== undefined) plan.isActive = isActive;
-    if (tokens !== undefined && plan.planType === "token_pack") plan.tokens = Number(tokens);
+    if (validityDays !== undefined) plan.validityDays = validityDays != null ? Number(validityDays) : null;
+    if (price !== undefined && plan.planType === "monthly_unlimited") plan.price = Number(price);
+    if (pricePerToken !== undefined && plan.planType === "pay_per_token") plan.pricePerToken = Number(pricePerToken);
 
     await plan.save();
     res.status(200).json({ success: true, plan });
@@ -725,10 +730,12 @@ export const deletePlan = async (req, res) => {
 };
 
 // POST /api/admin/doctors/:id/assign-plan
+// monthly_unlimited: { planId }
+// pay_per_token:     { planId }  — doctor recharges wallet separately
 export const assignPlanToDoctor = async (req, res) => {
   try {
     const { id } = req.params;
-    const { planId, pricePaid } = req.body;
+    const { planId } = req.body;
 
     if (!planId) return res.status(400).json({ success: false, message: "planId is required" });
 
@@ -741,18 +748,21 @@ export const assignPlanToDoctor = async (req, res) => {
     if (!plan || !plan.isActive) return res.status(404).json({ success: false, message: "Plan not found or inactive" });
 
     const now = new Date();
-    const validUntil = new Date(now.getTime() + plan.validityDays * 24 * 60 * 60 * 1000);
+    const isUnlimited = plan.planType === "monthly_unlimited";
+    const validUntil = isUnlimited
+      ? new Date(now.getTime() + plan.validityDays * 24 * 60 * 60 * 1000)
+      : null;
 
     doctor.tokenPlan = {
       planId: plan._id,
       planType: plan.planType,
-      isUnlimited: plan.planType === "monthly_unlimited",
-      totalTokens: plan.planType === "monthly_unlimited" ? 0 : plan.tokens,
-      usedTokens: 0,
-      validFrom: now,
+      isUnlimited,
+      validFrom: isUnlimited ? now : null,
       validUntil,
+      totalTokens: 0,
+      pricePerToken: plan.planType === "pay_per_token" ? plan.pricePerToken : null,
+      usedTokens: 0,
       grantedAt: now,
-      pricePaid: pricePaid != null ? Number(pricePaid) : plan.price,
     };
 
     await doctor.save();
@@ -764,13 +774,44 @@ export const assignPlanToDoctor = async (req, res) => {
         planId: plan._id,
         planName: plan.name,
         planType: plan.planType,
-        isUnlimited: doctor.tokenPlan.isUnlimited,
-        totalTokens: doctor.tokenPlan.isUnlimited ? null : doctor.tokenPlan.totalTokens,
-        usedTokens: 0,
+        isUnlimited,
+        pricePerToken: doctor.tokenPlan.pricePerToken,
         validFrom: doctor.tokenPlan.validFrom,
         validUntil: doctor.tokenPlan.validUntil,
-        pricePaid: doctor.tokenPlan.pricePaid,
+        walletBalance: doctor.wallet?.balance ?? 0,
       },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/admin/doctors/:id/wallet/add  — admin manually tops up a doctor's wallet
+export const adminAddWalletBalance = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount } = req.body;
+
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ success: false, message: "amount must be greater than 0" });
+    }
+
+    const doctor = await User.findOneAndUpdate(
+      { _id: id, role: "doctor" },
+      { $inc: { "wallet.balance": Number(amount) } },
+      { new: true, select: "name wallet tokenPlan" }
+    );
+
+    if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found" });
+
+    const balance = doctor.wallet.balance;
+    const ppt = doctor.tokenPlan?.pricePerToken;
+
+    res.status(200).json({
+      success: true,
+      message: `₹${amount} added to Dr. ${doctor.name}'s wallet`,
+      walletBalance: balance,
+      tokensAvailable: ppt ? Math.floor(balance / ppt) : null,
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -782,16 +823,17 @@ export const getAllAssignedPlans = async (req, res) => {
   try {
     const doctors = await User.find({
       role: "doctor",
-      "tokenPlan.validUntil": { $ne: null },
+      "tokenPlan.planId": { $ne: null },
     })
-      .select("name phone email tokenPlan")
-      .populate("tokenPlan.planId", "name planType price");
+      .select("name phone email tokenPlan wallet")
+      .populate("tokenPlan.planId", "name planType price pricePerToken");
 
     const now = new Date();
 
     const data = doctors.map((d) => {
       const plan = d.tokenPlan;
-      const isExpired = plan.validUntil < now;
+      const isExpired = plan.isUnlimited && plan.validUntil ? plan.validUntil < now : false;
+      const balance = d.wallet?.balance ?? 0;
       return {
         doctorId: d._id,
         name: d.name,
@@ -801,14 +843,15 @@ export const getAllAssignedPlans = async (req, res) => {
           planId: plan.planId,
           planType: plan.planType,
           isUnlimited: plan.isUnlimited,
-          totalTokens: plan.isUnlimited ? null : plan.totalTokens,
+          pricePerToken: plan.pricePerToken,
           usedTokens: plan.usedTokens,
           validFrom: plan.validFrom,
           validUntil: plan.validUntil,
-          pricePaid: plan.pricePaid,
           isExpired,
-          isActive: !isExpired,
+          isActive: plan.planType === "pay_per_token" ? balance > 0 : !isExpired,
         },
+        walletBalance: balance,
+        tokensAvailable: plan.pricePerToken ? Math.floor(balance / plan.pricePerToken) : null,
       };
     });
 
