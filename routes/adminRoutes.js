@@ -20,6 +20,12 @@ import {
     getPaymentsSummary,
     grantTokens,
     getDoctorTokenPlan,
+    createPlan,
+    getPlans,
+    updatePlan,
+    deletePlan,
+    assignPlanToDoctor,
+    getAllAssignedPlans,
 } from "../controllers/adminController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -74,8 +80,18 @@ router.patch("/reports/:ticketId/status", updateReportStatus);
 router.get("/patient-reports", getAllPatientReports);
 router.patch("/patient-reports/:ticketId/status", updatePatientReportStatus);
 
-// token management
+// token management (free grant — legacy)
 router.post("/doctors/:id/grant-tokens", grantTokens);
 router.get("/doctors/:id/token-plan", getDoctorTokenPlan);
+
+// plan management
+router.post("/plans", createPlan);
+router.get("/plans", getPlans);
+router.patch("/plans/:id", updatePlan);
+router.delete("/plans/:id", deletePlan);
+
+// assign plan to doctor
+router.post("/doctors/:id/assign-plan", assignPlanToDoctor);
+router.get("/plans/assigned", getAllAssignedPlans);
 
 export default router;

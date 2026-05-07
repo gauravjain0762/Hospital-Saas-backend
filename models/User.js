@@ -146,12 +146,19 @@ rejections: {
     },
 
     tokenPlan: {
+      planId: { type: mongoose.Schema.Types.ObjectId, ref: "Plan", default: null },
+      planType: {
+        type: String,
+        enum: ["free", "monthly_unlimited", "token_pack"],
+        default: "free",
+      },
+      isUnlimited: { type: Boolean, default: false },
       totalTokens: { type: Number, default: 0 },
       usedTokens: { type: Number, default: 0 },
       validFrom: { type: Date, default: null },
       validUntil: { type: Date, default: null },
-      planType: { type: String, enum: ["free"], default: "free" },
       grantedAt: { type: Date, default: null },
+      pricePaid: { type: Number, default: 0 },
     },
   },
   { timestamps: true }

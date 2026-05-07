@@ -1074,7 +1074,7 @@ export const updateStep3 = async (req, res) => {
 // GET /api/doctor/token-plan
 export const getTokenPlan = async (req, res) => {
   try {
-    const doctor = await User.findById(req.user._id).select("tokenPlan");
+    const doctor = await User.findById(req.user._id).select("tokenPlan").populate("tokenPlan.planId", "name planType price validityDays");
 
     if (!doctor) {
       return res.status(404).json({ success: false, message: "Doctor not found" });
@@ -1084,21 +1084,24 @@ export const getTokenPlan = async (req, res) => {
     const now = new Date();
     const hasPlan = !!plan?.validUntil;
     const isExpired = hasPlan && plan.validUntil < now;
-    const remaining = hasPlan ? Math.max(0, plan.totalTokens - plan.usedTokens) : 0;
+    const remaining = plan?.isUnlimited ? null : (hasPlan ? Math.max(0, plan.totalTokens - plan.usedTokens) : 0);
+    const isActive = hasPlan && !isExpired && (plan.isUnlimited || remaining > 0);
 
     res.status(200).json({
       success: true,
       hasPlan,
       tokenPlan: hasPlan
         ? {
+            planId: plan.planId,
             planType: plan.planType,
-            totalTokens: plan.totalTokens,
+            isUnlimited: plan.isUnlimited,
+            totalTokens: plan.isUnlimited ? null : plan.totalTokens,
             usedTokens: plan.usedTokens,
             remainingTokens: remaining,
             validFrom: plan.validFrom,
             validUntil: plan.validUntil,
             isExpired,
-            isActive: !isExpired && remaining > 0,
+            isActive,
           }
         : null,
     });

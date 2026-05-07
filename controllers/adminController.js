@@ -4,6 +4,7 @@ import AppVersion from "../models/appVersion.model.js";
 import Report from "../models/report.model.js";
 import LegalContent from "../models/legalContent.model.js";
 import PatientReport from "../models/patientReport.model.js";
+import Plan from "../models/plan.model.js";
 import { sendApprovalEmail, sendRejectionEmail } from "../utils/sendEmail.js";
 import { formatLegalContent } from "../utils/formatLegalContent.js";
 
@@ -603,7 +604,7 @@ export const getDoctorTokenPlan = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const doctor = await User.findOne({ _id: id, role: "doctor" }).select("name tokenPlan");
+    const doctor = await User.findOne({ _id: id, role: "doctor" }).select("name tokenPlan").populate("tokenPlan.planId", "name planType price validityDays");
     if (!doctor) {
       return res.status(404).json({ success: false, message: "Doctor not found" });
     }
@@ -612,7 +613,8 @@ export const getDoctorTokenPlan = async (req, res) => {
     const now = new Date();
     const hasPlan = !!plan?.validUntil;
     const isExpired = hasPlan && plan.validUntil < now;
-    const remaining = hasPlan ? Math.max(0, plan.totalTokens - plan.usedTokens) : 0;
+    const remaining = plan?.isUnlimited ? null : (hasPlan ? Math.max(0, plan.totalTokens - plan.usedTokens) : 0);
+    const isActive = hasPlan && !isExpired && (plan.isUnlimited || remaining > 0);
 
     res.status(200).json({
       success: true,
@@ -620,17 +622,197 @@ export const getDoctorTokenPlan = async (req, res) => {
       hasPlan,
       tokenPlan: hasPlan
         ? {
+            planId: plan.planId,
             planType: plan.planType,
-            totalTokens: plan.totalTokens,
+            isUnlimited: plan.isUnlimited,
+            totalTokens: plan.isUnlimited ? null : plan.totalTokens,
             usedTokens: plan.usedTokens,
             remainingTokens: remaining,
             validFrom: plan.validFrom,
             validUntil: plan.validUntil,
+            pricePaid: plan.pricePaid,
             isExpired,
-            isActive: !isExpired && remaining > 0,
+            isActive,
           }
         : null,
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─── PLAN CRUD ────────────────────────────────────────────────────────────────
+
+// POST /api/admin/plans
+export const createPlan = async (req, res) => {
+  try {
+    const { name, description, planType, price, tokens, validityDays } = req.body;
+
+    if (!name || !planType || price == null || !validityDays) {
+      return res.status(400).json({ success: false, message: "name, planType, price, and validityDays are required" });
+    }
+
+    if (!["monthly_unlimited", "token_pack"].includes(planType)) {
+      return res.status(400).json({ success: false, message: "planType must be monthly_unlimited or token_pack" });
+    }
+
+    if (planType === "token_pack" && (!tokens || Number(tokens) < 1)) {
+      return res.status(400).json({ success: false, message: "tokens is required for token_pack plans" });
+    }
+
+    const plan = await Plan.create({
+      name,
+      description: description || "",
+      planType,
+      price: Number(price),
+      tokens: planType === "monthly_unlimited" ? null : Number(tokens),
+      validityDays: Number(validityDays),
+    });
+
+    res.status(201).json({ success: true, plan });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// GET /api/admin/plans
+export const getPlans = async (req, res) => {
+  try {
+    const plans = await Plan.find().sort({ createdAt: -1 });
+    res.status(200).json({ success: true, plans });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// PATCH /api/admin/plans/:id
+export const updatePlan = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, price, tokens, validityDays, isActive } = req.body;
+
+    const plan = await Plan.findById(id);
+    if (!plan) return res.status(404).json({ success: false, message: "Plan not found" });
+
+    if (name !== undefined) plan.name = name;
+    if (description !== undefined) plan.description = description;
+    if (price !== undefined) plan.price = Number(price);
+    if (validityDays !== undefined) plan.validityDays = Number(validityDays);
+    if (isActive !== undefined) plan.isActive = isActive;
+    if (tokens !== undefined && plan.planType === "token_pack") plan.tokens = Number(tokens);
+
+    await plan.save();
+    res.status(200).json({ success: true, plan });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// DELETE /api/admin/plans/:id
+export const deletePlan = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const plan = await Plan.findById(id);
+    if (!plan) return res.status(404).json({ success: false, message: "Plan not found" });
+
+    plan.isActive = false;
+    await plan.save();
+
+    res.status(200).json({ success: true, message: "Plan deactivated successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/admin/doctors/:id/assign-plan
+export const assignPlanToDoctor = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { planId, pricePaid } = req.body;
+
+    if (!planId) return res.status(400).json({ success: false, message: "planId is required" });
+
+    const [doctor, plan] = await Promise.all([
+      User.findOne({ _id: id, role: "doctor" }),
+      Plan.findById(planId),
+    ]);
+
+    if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found" });
+    if (!plan || !plan.isActive) return res.status(404).json({ success: false, message: "Plan not found or inactive" });
+
+    const now = new Date();
+    const validUntil = new Date(now.getTime() + plan.validityDays * 24 * 60 * 60 * 1000);
+
+    doctor.tokenPlan = {
+      planId: plan._id,
+      planType: plan.planType,
+      isUnlimited: plan.planType === "monthly_unlimited",
+      totalTokens: plan.planType === "monthly_unlimited" ? 0 : plan.tokens,
+      usedTokens: 0,
+      validFrom: now,
+      validUntil,
+      grantedAt: now,
+      pricePaid: pricePaid != null ? Number(pricePaid) : plan.price,
+    };
+
+    await doctor.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Plan "${plan.name}" assigned to Dr. ${doctor.name}`,
+      tokenPlan: {
+        planId: plan._id,
+        planName: plan.name,
+        planType: plan.planType,
+        isUnlimited: doctor.tokenPlan.isUnlimited,
+        totalTokens: doctor.tokenPlan.isUnlimited ? null : doctor.tokenPlan.totalTokens,
+        usedTokens: 0,
+        validFrom: doctor.tokenPlan.validFrom,
+        validUntil: doctor.tokenPlan.validUntil,
+        pricePaid: doctor.tokenPlan.pricePaid,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// GET /api/admin/plans/assigned  — all doctors with an active plan
+export const getAllAssignedPlans = async (req, res) => {
+  try {
+    const doctors = await User.find({
+      role: "doctor",
+      "tokenPlan.validUntil": { $ne: null },
+    })
+      .select("name phone email tokenPlan")
+      .populate("tokenPlan.planId", "name planType price");
+
+    const now = new Date();
+
+    const data = doctors.map((d) => {
+      const plan = d.tokenPlan;
+      const isExpired = plan.validUntil < now;
+      return {
+        doctorId: d._id,
+        name: d.name,
+        phone: d.phone,
+        email: d.email,
+        plan: {
+          planId: plan.planId,
+          planType: plan.planType,
+          isUnlimited: plan.isUnlimited,
+          totalTokens: plan.isUnlimited ? null : plan.totalTokens,
+          usedTokens: plan.usedTokens,
+          validFrom: plan.validFrom,
+          validUntil: plan.validUntil,
+          pricePaid: plan.pricePaid,
+          isExpired,
+          isActive: !isExpired,
+        },
+      };
+    });
+
+    res.status(200).json({ success: true, total: data.length, doctors: data });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
