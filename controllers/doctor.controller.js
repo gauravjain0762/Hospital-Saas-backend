@@ -398,6 +398,17 @@ export const getDoctorDashboard = async (req, res) => {
     const waiting = appointments.filter((a) => a.status === "waiting").length;
     const cancelled = appointments.filter((a) => a.status === "cancelled").length;
 
+    const paymentMode = req.user.paymentDetails?.paymentMethod;
+    let revenue;
+    if (paymentMode === "online") {
+      revenue = { total: onlineRevenue, online: onlineRevenue };
+    } else if (paymentMode === "cash") {
+      revenue = { total: offlineRevenue, offline: offlineRevenue };
+    } else {
+      // "both" or unset
+      revenue = { total: onlineRevenue + offlineRevenue, online: onlineRevenue, offline: offlineRevenue };
+    }
+
     return res.status(200).json({
       success: true,
       date: today,
@@ -406,11 +417,7 @@ export const getDoctorDashboard = async (req, res) => {
       completed,
       waiting,
       cancelled,
-      revenue: {
-        total: onlineRevenue + offlineRevenue,
-        online: onlineRevenue,
-        offline: offlineRevenue,
-      },
+      revenue,
     });
 
   } catch (error) {
