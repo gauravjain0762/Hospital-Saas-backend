@@ -5,6 +5,7 @@ import Patient from "../models/patient.model.js";
 import Report from "../models/report.model.js";
 import Review from "../models/review.model.js";
 import Plan from "../models/plan.model.js";
+import WalletTransaction from "../models/walletTransaction.model.js";
 import admin from "../utils/firebase.js";
 import xlsx from "xlsx";
 import jwt from "jsonwebtoken";
@@ -1199,11 +1200,18 @@ export const getWallet = async (req, res) => {
 export const rechargeWallet = async (req, res) => {
   try {
     const doctorId = req.user._id;
-    const { amount } = req.body;
+    const { amount } = req.body || {};
 
     if (!amount || Number(amount) <= 0) {
       return res.status(400).json({ success: false, message: "amount must be greater than 0" });
     }
+
+    const before = await User.findOne({ _id: doctorId, "tokenPlan.planType": "pay_per_token" }).select("wallet");
+    if (!before) {
+      return res.status(400).json({ success: false, message: "You must have an active pay_per_token plan to recharge" });
+    }
+
+    const balanceBefore = before.wallet?.balance ?? 0;
 
     const doctor = await User.findOneAndUpdate(
       { _id: doctorId, "tokenPlan.planType": "pay_per_token" },
@@ -1211,12 +1219,17 @@ export const rechargeWallet = async (req, res) => {
       { new: true, select: "wallet tokenPlan" }
     );
 
-    if (!doctor) {
-      return res.status(400).json({ success: false, message: "You must have an active pay_per_token plan to recharge" });
-    }
-
     const balance = doctor.wallet.balance;
     const ppt = doctor.tokenPlan.pricePerToken;
+
+    await WalletTransaction.create({
+      doctorId,
+      type: "recharge",
+      amount: Number(amount),
+      balanceBefore,
+      balanceAfter: balance,
+      description: `Wallet recharged with ₹${amount}`,
+    });
 
     res.status(200).json({
       success: true,
@@ -1362,6 +1375,32 @@ export const deleteDoctorAccount = async (req, res) => {
       success: true,
       message: "Account deleted successfully",
       reason: reason || null,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/doctor/wallet/history
+export const getWalletHistory = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+
+    const transactions = await WalletTransaction.find({ doctorId })
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    res.status(200).json({
+      success: true,
+      transactions: transactions.map((t) => ({
+        id: t._id,
+        type: t.type,
+        amount: t.amount,
+        balanceBefore: t.balanceBefore,
+        balanceAfter: t.balanceAfter,
+        description: t.description,
+        date: t.createdAt,
+      })),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

@@ -32,6 +32,7 @@ import { getTodayQueue,
     buyPlan,
     getWallet,
     rechargeWallet,
+    getWalletHistory,
  } from "../controllers/doctor.controller.js";
 
 router.get("/profile", protect, getDoctorProfile);
@@ -64,6 +65,7 @@ router.get("/plans", protect, getAvailablePlans);
 router.post("/plans/buy", protect, buyPlan);
 router.get("/wallet", protect, getWallet);
 router.post("/wallet/recharge", protect, rechargeWallet);
+router.get("/wallet/history", protect, getWalletHistory);
 
 
 export default router;
