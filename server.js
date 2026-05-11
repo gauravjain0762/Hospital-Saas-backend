@@ -97,17 +97,18 @@ io.on("connection", (socket) => {
   });
 
   // patient joins city room to get real-time doctor availability (manual fallback)
+  // patient joins city room when opening doctor search screen
   socket.on("joinCityRoom", (city) => {
     const room = `city_${city.toLowerCase().trim()}`;
     socket.join(room);
     console.log(`[SOCKET] joinCityRoom | socketId=${socket.id} | room=${room}`);
   });
 
-  // patient joins city room to get real-time doctor availability
-  socket.on("joinCityRoom", (city) => {
+  // patient leaves city room when closing doctor search screen
+  socket.on("leaveCityRoom", (city) => {
     const room = `city_${city.toLowerCase().trim()}`;
-    socket.join(room);
-    console.log(`[SOCKET] joinCityRoom | socketId=${socket.id} | room=${room}`);
+    socket.leave(room);
+    console.log(`[SOCKET] leaveCityRoom | socketId=${socket.id} | room=${room}`);
   });
 
   socket.on("disconnect", (reason) => {
