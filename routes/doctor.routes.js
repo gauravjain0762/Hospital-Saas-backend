@@ -33,6 +33,7 @@ import { getTodayQueue,
     getWallet,
     rechargeWallet,
     getWalletHistory,
+    toggleAutoRenew,
  } from "../controllers/doctor.controller.js";
 
 router.get("/profile", protect, getDoctorProfile);
@@ -59,7 +60,8 @@ router.patch("/settings/services", protect, updateServices);
 router.post("/reports", protect, submitReport);
 router.delete("/account", protect, deleteDoctorAccount);
 router.get("/reports", protect, getMyReports);
-router.get("/token-plan", protect, getTokenPlan);
+router.get("/token-plan", protect, getTokenPlan)
+router.patch("/token-plan/auto-renew", protect, toggleAutoRenew);
 router.get("/my-reviews", protect, getMyReviewsAsDoctor);
 router.get("/plans", protect, getAvailablePlans);
 router.post("/plans/buy", protect, buyPlan);

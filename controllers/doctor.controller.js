@@ -1167,11 +1167,42 @@ export const getTokenPlan = async (req, res) => {
             validUntil: plan.validUntil,
             isExpired,
             isActive,
+            autoRenew: plan.planType === "monthly_unlimited" ? (plan.autoRenew ?? true) : undefined,
             // pay_per_token
             walletBalance: plan.planType === "pay_per_token" ? balance : undefined,
             tokensAvailable: plan.planType !== "monthly_unlimited" ? tokensAvailable : undefined,
           }
         : null,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PATCH /api/doctor/token-plan/auto-renew
+export const toggleAutoRenew = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+    const { autoRenew } = req.body || {};
+
+    if (typeof autoRenew !== "boolean") {
+      return res.status(400).json({ success: false, message: "autoRenew must be true or false" });
+    }
+
+    const doctor = await User.findOneAndUpdate(
+      { _id: doctorId, "tokenPlan.planType": "monthly_unlimited" },
+      { "tokenPlan.autoRenew": autoRenew },
+      { new: true, select: "tokenPlan" }
+    );
+
+    if (!doctor) {
+      return res.status(400).json({ success: false, message: "Auto-renewal is only available for monthly unlimited plans" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Auto-renewal ${autoRenew ? "enabled" : "disabled"}`,
+      autoRenew: doctor.tokenPlan.autoRenew,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

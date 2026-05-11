@@ -167,6 +167,8 @@ rejections: {
       // all plans: usage tracking
       usedTokens: { type: Number, default: 0 },
       grantedAt: { type: Date, default: null },
+      // monthly_unlimited: auto-renewal toggle
+      autoRenew: { type: Boolean, default: true },
     },
   },
   { timestamps: true }
