@@ -82,6 +82,35 @@ io.on("connection", (socket) => {
     console.log(`[SOCKET] Sent joinedRoom confirmation to socketId=${socket.id} | room=${room}`);
   });
 
+  // patient registers on app open — joins personal room + city room
+  socket.on("registerPatient", ({ patientId, city } = {}) => {
+    console.log(`[SOCKET] registerPatient CALLED | socketId=${socket.id} | patientId=${patientId} | city=${city}`);
+
+    if (!patientId && !city) {
+      console.warn(`[SOCKET] registerPatient | socketId=${socket.id} | WARNING: no patientId or city received`);
+    }
+
+    if (patientId) {
+      const patientRoom = `patient_${patientId}`;
+      socket.join(patientRoom);
+      const allRooms = Array.from(socket.rooms);
+      console.log(`[SOCKET] registerPatient | joined patientRoom=${patientRoom} | allRooms=${JSON.stringify(allRooms)}`);
+      socket.emit("patientRegistered", { patientRoom, status: "joined" });
+      console.log(`[SOCKET] registerPatient | patientRegistered confirmation sent to socketId=${socket.id}`);
+    } else {
+      console.warn(`[SOCKET] registerPatient | socketId=${socket.id} | WARNING: patientId missing — skipping patient room`);
+    }
+
+    if (city) {
+      const cityRoom = `city_${city.toLowerCase().trim()}`;
+      socket.join(cityRoom);
+      const allRooms = Array.from(socket.rooms);
+      console.log(`[SOCKET] registerPatient | joined cityRoom=${cityRoom} | allRooms=${JSON.stringify(allRooms)}`);
+    } else {
+      console.warn(`[SOCKET] registerPatient | socketId=${socket.id} | WARNING: city missing — skipping city room`);
+    }
+  });
+
   // patient joins city room to get real-time doctor availability
   socket.on("joinCityRoom", (city) => {
     const room = `city_${city.toLowerCase().trim()}`;
