@@ -93,6 +93,7 @@ export const approveUser = async (req, res) => {
     }
 
     user.status = "approved";
+    user.activeStatus = "active";
     await user.save();
 
     //send approval email

@@ -480,9 +480,10 @@ export const toggleDutyStatus = async (req, res) => {
 
     const doctorAvailable = activeStatus === "active";
 
+    // only update doctorAvailable — activeStatus is admin-controlled account status
     const doctor = await User.findByIdAndUpdate(
       doctorId,
-      { activeStatus, doctorAvailable },
+      { doctorAvailable },
       { new: true }
     );
 
@@ -491,7 +492,7 @@ export const toggleDutyStatus = async (req, res) => {
     }
 
     // send notification to all today's waiting patients when doctor goes ON DUTY
-    if (activeStatus === "active") {
+    if (doctorAvailable) {
       const today = new Date().toISOString().split("T")[0];
 
       const appointments = await Appointment.find({
@@ -542,7 +543,7 @@ export const toggleDutyStatus = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `You are now ${activeStatus === "active" ? "ON DUTY" : "OFF DUTY"}`,
+      message: `You are now ${doctorAvailable ? "ON DUTY" : "OFF DUTY"}`,
       activeStatus: doctor.activeStatus,
       doctorAvailable: doctor.doctorAvailable,
     });
