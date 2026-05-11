@@ -882,6 +882,12 @@ export const createWalkInAppointment = async (req, res) => {
       patient = await Patient.create({ mobile: phone, fullName, email: email || "" });
     }
 
+    // deduct token before creating appointment
+    const tokenResult = await checkAndDeductToken(doctorId);
+    if (!tokenResult.allowed) {
+      return res.status(403).json({ success: false, message: tokenResult.reason });
+    }
+
     let queue = await Queue.findOne({ doctorId, date });
     if (!queue) {
       queue = await Queue.create({ doctorId, date, currentToken: 0, lastIssuedToken: 0 });
@@ -1253,7 +1259,7 @@ export const getAvailablePlans = async (req, res) => {
 export const buyPlan = async (req, res) => {
   try {
     const doctorId = req.user._id;
-    const { planId, initialAmount } = req.body;
+    const { planId, initialAmount } = req.body || {};
 
     if (!planId) return res.status(400).json({ success: false, message: "planId is required" });
 

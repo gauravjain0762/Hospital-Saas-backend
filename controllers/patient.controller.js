@@ -408,11 +408,6 @@ export const bookAppointment = async (req, res) => {
       });
     }
 
-    const tokenResult = await checkAndDeductToken(doctorId);
-    if (!tokenResult.allowed) {
-      return res.status(403).json({ success: false, message: tokenResult.reason });
-    }
-
     // Validate slot against doctor availability
     const selectedDay = new Date(date).toLocaleDateString("en-US", {
       weekday: "long",
@@ -470,6 +465,12 @@ export const bookAppointment = async (req, res) => {
         success: false,
         message: "Already booked for this date",
       });
+    }
+
+    // deduct token only after all validations pass
+    const tokenResult = await checkAndDeductToken(doctorId);
+    if (!tokenResult.allowed) {
+      return res.status(403).json({ success: false, message: tokenResult.reason });
     }
 
     let queue = await Queue.findOne({ doctorId, date });
