@@ -494,7 +494,13 @@ export const toggleDutyStatus = async (req, res) => {
 
     // send notification to all today's waiting patients when doctor goes ON DUTY
     if (doctorAvailable) {
-      const today = new Date().toISOString().split("T")[0];
+      // Use IST (UTC+5:30) date — server runs UTC but doctors are in India
+      const istOffset = 5.5 * 60 * 60 * 1000;
+      const today = new Date(Date.now() + istOffset).toISOString().split("T")[0];
+
+      // diagnostic: show all stored appointment dates for this doctor so we can catch format mismatches
+      const allForDoctor = await Appointment.find({ doctorId }, "date status").lean();
+      console.log(`[DUTY] Doctor ${doctor.name} went ON DUTY | today(IST)=${today} | all appointment dates=${JSON.stringify(allForDoctor.map(a => ({ date: a.date, status: a.status })))}`);
 
       const appointments = await Appointment.find({
         doctorId,
@@ -507,7 +513,7 @@ export const toggleDutyStatus = async (req, res) => {
         .map((a) => a.patientId?.fcmToken)
         .filter(Boolean);
 
-      console.log(`[DUTY] Doctor ${doctor.name} went ON DUTY | today=${today} | patients to notify=${tokens.length}`);
+      console.log(`[DUTY] patients to notify=${tokens.length}`);
 
       for (const token of tokens) {
         try {
