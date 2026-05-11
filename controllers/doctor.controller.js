@@ -414,6 +414,7 @@ export const getDoctorDashboard = async (req, res) => {
       success: true,
       date: today,
       activeStatus: req.user.activeStatus,
+      doctorAvailable: req.user.doctorAvailable,
       totalAppointments,
       completed,
       waiting,
