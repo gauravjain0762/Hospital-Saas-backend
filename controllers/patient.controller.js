@@ -5,6 +5,7 @@ import Appointment from "../models/appointment.model.js";
 import Queue from "../models/queue.model.js";
 import PatientReport from "../models/patientReport.model.js";
 import Review from "../models/review.model.js";
+import Clinic from "../models/clinic.model.js";
 import { checkAndDeductToken } from "../utils/tokenGuard.js";
 
 //OTP
@@ -471,6 +472,14 @@ export const bookAppointment = async (req, res) => {
     const tokenResult = await checkAndDeductToken(doctorId);
     if (!tokenResult.allowed) {
       return res.status(403).json({ success: false, message: tokenResult.reason });
+    }
+
+    if (tokenResult.walletBalance !== undefined) {
+      const io = req.app.get("io");
+      io.to(`doctor_${doctorId}`).emit("walletUpdated", {
+        walletBalance: tokenResult.walletBalance,
+        tokensAvailable: tokenResult.tokensAvailable,
+      });
     }
 
     let queue = await Queue.findOne({ doctorId, date });
@@ -1131,6 +1140,46 @@ export const getDoctorReviews = async (req, res) => {
         rating: r.rating,
         review: r.review,
         date: r.createdAt,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/patient/clinic/:clinicId  — scanned from QR code, no auth needed
+export const getClinicById = async (req, res) => {
+  try {
+    const { clinicId } = req.params;
+
+    const clinic = await Clinic.findById(clinicId);
+    if (!clinic) return res.status(404).json({ success: false, message: "Clinic not found" });
+
+    const doctors = await User.find(
+      { clinicId, role: "doctor", status: "approved" },
+      "name profilePhoto services experience doctorAvailable activeStatus clinic.consultationFee clinic.clinicName"
+    );
+
+    res.status(200).json({
+      success: true,
+      clinic: {
+        id: clinic._id,
+        clinicName: clinic.clinicName,
+        address: clinic.address,
+        city: clinic.city,
+        state: clinic.state,
+        pincode: clinic.pincode,
+        phone: clinic.phone,
+        photos: clinic.photos,
+      },
+      doctors: doctors.map((d) => ({
+        id: d._id,
+        name: d.name,
+        profilePhoto: d.profilePhoto,
+        services: d.services,
+        experience: d.experience,
+        doctorAvailable: d.doctorAvailable,
+        consultationFee: d.clinic?.consultationFee ?? null,
       })),
     });
   } catch (error) {

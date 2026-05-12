@@ -25,6 +25,7 @@ import {
     toggleNotifications,
     submitDoctorReview,
     getDoctorReviews,
+    getClinicById,
 } from "../controllers/patient.controller.js";
 
 import patientAuth from "../middleware/patientAuth.js";
@@ -73,5 +74,7 @@ router.delete("/account", patientAuth, deletePatientAccount);
 
 router.post("/doctors/:id/review", patientAuth, submitDoctorReview);
 router.get("/doctors/:id/reviews", getDoctorReviews);
+
+router.get("/clinic/:clinicId", getClinicById);
 
 export default router; // ✅ IMPORTANT

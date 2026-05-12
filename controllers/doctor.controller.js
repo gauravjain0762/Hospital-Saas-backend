@@ -897,6 +897,14 @@ export const createWalkInAppointment = async (req, res) => {
       return res.status(403).json({ success: false, message: tokenResult.reason });
     }
 
+    if (tokenResult.walletBalance !== undefined) {
+      const io = req.app.get("io");
+      io.to(`doctor_${doctorId}`).emit("walletUpdated", {
+        walletBalance: tokenResult.walletBalance,
+        tokensAvailable: tokenResult.tokensAvailable,
+      });
+    }
+
     let queue = await Queue.findOne({ doctorId, date });
     if (!queue) {
       queue = await Queue.create({ doctorId, date, currentToken: 0, lastIssuedToken: 0 });
@@ -1268,6 +1276,13 @@ export const rechargeWallet = async (req, res) => {
       balanceBefore,
       balanceAfter: balance,
       description: `Wallet recharged with ₹${amount}`,
+    });
+
+    const io = req.app.get("io");
+    io.to(`doctor_${doctorId}`).emit("walletUpdated", {
+      walletBalance: balance,
+      pricePerToken: ppt ?? null,
+      tokensAvailable: ppt ? Math.floor(balance / ppt) : null,
     });
 
     res.status(200).json({

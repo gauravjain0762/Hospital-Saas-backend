@@ -139,6 +139,12 @@ rejections: {
     awards: [String],
     achievements: [String],
 
+    clinicId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Clinic",
+      default: null,
+    },
+
     role: {
       type: String,
       enum: ["doctor", "clinic", "admin"],
