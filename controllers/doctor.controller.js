@@ -522,7 +522,9 @@ export const toggleDutyStatus = async (req, res) => {
             console.log(`[DUTY] FCM failed for token ${token}:`, err.message);
           }
         }
-        await Notification.create({ patientId: appt.patientId._id, title, body, type: "doctor_on_duty", doctorId: doctor._id });
+        if (appt.patientId?._id) {
+          await Notification.create({ patientId: appt.patientId._id, title, body, type: "doctor_on_duty", doctorId: doctor._id });
+        }
       }
     }
 
