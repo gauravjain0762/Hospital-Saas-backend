@@ -26,6 +26,8 @@ import {
     submitDoctorReview,
     getDoctorReviews,
     getClinicById,
+    getNotifications,
+    getUnreadCount,
 } from "../controllers/patient.controller.js";
 
 import patientAuth from "../middleware/patientAuth.js";
@@ -76,5 +78,8 @@ router.post("/doctors/:id/review", patientAuth, submitDoctorReview);
 router.get("/doctors/:id/reviews", getDoctorReviews);
 
 router.get("/clinic/:clinicId", getClinicById);
+
+router.get("/notifications", patientAuth, getNotifications);
+router.get("/notifications/unread-count", patientAuth, getUnreadCount);
 
 export default router; // ✅ IMPORTANT

@@ -7,6 +7,7 @@ import Review from "../models/review.model.js";
 import Plan from "../models/plan.model.js";
 import WalletTransaction from "../models/walletTransaction.model.js";
 import Clinic from "../models/clinic.model.js";
+import Notification from "../models/notification.model.js";
 import admin from "../utils/firebase.js";
 import xlsx from "xlsx";
 import jwt from "jsonwebtoken";
@@ -152,20 +153,15 @@ export const nextToken = async (req, res) => {
       const notificationsEnabled = item.patientId?.notificationsEnabled !== false;
 
       if (fcmToken && notificationsEnabled) {
+        const title = "Appointment Reminder";
+        const body = `Current token is ${queue.currentToken}. Your token is ${item.tokenNumber}. Please reach clinic soon.`;
         try {
-          await admin.messaging().send({
-            token: fcmToken,
-            notification: {
-              title: "Appointment Reminder",
-              body: `Current token is ${queue.currentToken}. Your token is ${item.tokenNumber}. Please reach clinic soon.`,
-            },
-          });
-
+          await admin.messaging().send({ token: fcmToken, notification: { title, body } });
           console.log("Notification sent to token:", item.tokenNumber);
-
         } catch (err) {
           console.log("FCM send failed:", err.message);
         }
+        await Notification.create({ patientId: item.patientId._id, title, body, type: "queue_reminder", doctorId });
       }
     }
 
@@ -256,18 +252,15 @@ export const markDone = async (req, res) => {
     console.log(`[FCM] targetAppointment found=${!!targetAppointment} | fcmToken=${targetAppointment?.patientId?.fcmToken || "EMPTY"}`);
 
     if (targetAppointment?.patientId?.fcmToken && targetAppointment.patientId.notificationsEnabled !== false) {
+      const title = "Appointment Reminder";
+      const body = `Current token is ${appointment.tokenNumber}. Your token is ${notifyToken}. Please reach clinic soon.`;
       try {
-        await admin.messaging().send({
-          token: targetAppointment.patientId.fcmToken,
-          notification: {
-            title: "Appointment Reminder",
-            body: `Current token is ${appointment.tokenNumber}. Your token is ${notifyToken}. Please reach clinic soon.`,
-          },
-        });
+        await admin.messaging().send({ token: targetAppointment.patientId.fcmToken, notification: { title, body } });
         console.log(`[FCM] Notification sent to tokenNumber=${notifyToken}`);
       } catch (err) {
         console.log(`[FCM] Send failed for tokenNumber=${notifyToken}:`, err.message);
       }
+      await Notification.create({ patientId: targetAppointment.patientId._id, title, body, type: "queue_reminder", doctorId });
     }
 
     res.status(200).json({
@@ -516,18 +509,20 @@ export const toggleDutyStatus = async (req, res) => {
 
       console.log(`[DUTY] patients to notify=${tokens.length}`);
 
-      for (const token of tokens) {
-        try {
-          await admin.messaging().send({
-            token,
-            notification: {
-              title: "Clinic is now open!",
-              body: `Dr. ${doctor.name} is now attending patients. Please be ready.`,
-            },
-          });
-        } catch (err) {
-          console.log(`[DUTY] FCM failed for token ${token}:`, err.message);
+      const title = "Clinic is now open!";
+      const body = `Dr. ${doctor.name} is now attending patients. Please be ready.`;
+
+      for (const appt of appointments) {
+        if (appt.patientId?.notificationsEnabled === false) continue;
+        const token = appt.patientId?.fcmToken;
+        if (token) {
+          try {
+            await admin.messaging().send({ token, notification: { title, body } });
+          } catch (err) {
+            console.log(`[DUTY] FCM failed for token ${token}:`, err.message);
+          }
         }
+        await Notification.create({ patientId: appt.patientId._id, title, body, type: "doctor_on_duty", doctorId: doctor._id });
       }
     }
 

@@ -6,6 +6,7 @@ import Queue from "../models/queue.model.js";
 import PatientReport from "../models/patientReport.model.js";
 import Review from "../models/review.model.js";
 import Clinic from "../models/clinic.model.js";
+import Notification from "../models/notification.model.js";
 import { checkAndDeductToken } from "../utils/tokenGuard.js";
 
 //OTP
@@ -1151,6 +1152,58 @@ export const getDoctorReviews = async (req, res) => {
         date: r.createdAt,
       })),
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/patient/notifications
+export const getNotifications = async (req, res) => {
+  try {
+    const patientId = req.patient.id;
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(50, parseInt(req.query.limit) || 20);
+    const skip  = (page - 1) * limit;
+
+    const [total, notifications] = await Promise.all([
+      Notification.countDocuments({ patientId }),
+      Notification.find({ patientId })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select("title body type isRead createdAt doctorId"),
+    ]);
+
+    // mark fetched notifications as read
+    const ids = notifications.filter(n => !n.isRead).map(n => n._id);
+    if (ids.length) await Notification.updateMany({ _id: { $in: ids } }, { isRead: true });
+
+    res.status(200).json({
+      success: true,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+      unreadCount: ids.length,
+      notifications: notifications.map((n) => ({
+        id: n._id,
+        title: n.title,
+        body: n.body,
+        type: n.type,
+        isRead: n.isRead,
+        doctorId: n.doctorId,
+        createdAt: n.createdAt,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/patient/notifications/unread-count
+export const getUnreadCount = async (req, res) => {
+  try {
+    const count = await Notification.countDocuments({ patientId: req.patient.id, isRead: false });
+    res.status(200).json({ success: true, unreadCount: count });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
