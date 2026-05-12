@@ -28,6 +28,7 @@ import {
     getClinicById,
     getNotifications,
     getUnreadCount,
+    getAppointmentStats,
 } from "../controllers/patient.controller.js";
 
 import { getLegalContent } from "../controllers/adminController.js";
@@ -59,6 +60,8 @@ router.post("/book-appointment", patientAuth, bookAppointment);
 router.get("/appointment/:id", patientAuth, getAppointmentDetails);
 
 router.get("/my-appointments", patientAuth, getMyAppointments);
+
+router.get("/appointment-stats", patientAuth, getAppointmentStats);
 
 router.patch("/cancel-appointment/:id", patientAuth, cancelAppointment);
 

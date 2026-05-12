@@ -1199,6 +1199,30 @@ export const getNotifications = async (req, res) => {
   }
 };
 
+// GET /api/patient/appointment-stats
+export const getAppointmentStats = async (req, res) => {
+  try {
+    const patientId = req.patient.id;
+
+    const [totalBooked, completedCount, upcomingCount] = await Promise.all([
+      Appointment.countDocuments({ patientId }),
+      Appointment.countDocuments({ patientId, status: "completed" }),
+      Appointment.countDocuments({ patientId, status: { $in: ["waiting", "in_progress"] } }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      stats: {
+        totalBooked,
+        completed: completedCount,
+        upcoming: upcomingCount,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // GET /api/patient/notifications/unread-count
 export const getUnreadCount = async (req, res) => {
   try {
