@@ -6,6 +6,7 @@ import cloudinary from "../utils/cloudinary.js";
 import streamifier from "streamifier";
 import Service from "../models/Service.js";
 import Qualification from "../models/Qualification.js";
+import Clinic from "../models/clinic.model.js";
 
 
 
@@ -359,9 +360,29 @@ export const registerStep2 = async (req, res) => {
 
     await user.save();
 
+    // create or update the shared Clinic document
+    const clinicData = {
+      clinicName,
+      address,
+      city,
+      state,
+      pincode,
+      phone: user.phone,
+      photos: photoUrls.length ? photoUrls : undefined,
+    };
+
+    if (user.clinicId) {
+      await Clinic.findByIdAndUpdate(user.clinicId, clinicData);
+    } else {
+      const clinic = await Clinic.create(clinicData);
+      user.clinicId = clinic._id;
+      await user.save();
+    }
+
     res.json({
       success: true,
       message: "Step 2 completed",
+      clinicId: user.clinicId,
       clinic: user.clinic,
       qualifications: user.qualifications,
     });

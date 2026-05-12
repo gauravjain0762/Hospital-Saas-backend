@@ -6,6 +6,7 @@ import Report from "../models/report.model.js";
 import Review from "../models/review.model.js";
 import Plan from "../models/plan.model.js";
 import WalletTransaction from "../models/walletTransaction.model.js";
+import Clinic from "../models/clinic.model.js";
 import admin from "../utils/firebase.js";
 import xlsx from "xlsx";
 import jwt from "jsonwebtoken";
@@ -1456,6 +1457,125 @@ export const getWalletHistory = async (req, res) => {
         date: t.createdAt,
       })),
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/doctor/clinic
+export const getMyClinic = async (req, res) => {
+  try {
+    const doctor = await User.findById(req.user._id).select("clinicId");
+    if (!doctor?.clinicId) {
+      return res.status(404).json({ success: false, message: "No clinic found" });
+    }
+
+    const clinic = await Clinic.findById(doctor.clinicId);
+    if (!clinic) return res.status(404).json({ success: false, message: "Clinic not found" });
+
+    const doctors = await User.find(
+      { clinicId: doctor.clinicId, role: "doctor", status: "approved" },
+      "name profilePhoto services experience doctorAvailable activeStatus"
+    );
+
+    res.status(200).json({
+      success: true,
+      clinic: {
+        id: clinic._id,
+        clinicName: clinic.clinicName,
+        address: clinic.address,
+        city: clinic.city,
+        state: clinic.state,
+        pincode: clinic.pincode,
+        phone: clinic.phone,
+        photos: clinic.photos,
+      },
+      doctors: doctors.map((d) => ({
+        id: d._id,
+        name: d.name,
+        profilePhoto: d.profilePhoto,
+        services: d.services,
+        experience: d.experience,
+        doctorAvailable: d.doctorAvailable,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/doctor/clinic/add-doctor  body: { phone }
+export const addDoctorToClinic = async (req, res) => {
+  try {
+    const me = await User.findById(req.user._id).select("clinicId");
+
+    if (!me?.clinicId) {
+      return res.status(400).json({ success: false, message: "You don't have a clinic yet" });
+    }
+
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ success: false, message: "phone is required" });
+
+    const target = await User.findOne({ phone, role: "doctor" });
+
+    if (!target) {
+      return res.status(404).json({ success: false, message: "No doctor found with this phone number" });
+    }
+
+    if (target._id.toString() === req.user._id.toString()) {
+      return res.status(400).json({ success: false, message: "You are already in this clinic" });
+    }
+
+    if (target.status !== "approved") {
+      return res.status(400).json({ success: false, message: "Doctor is not approved yet" });
+    }
+
+    if (target.clinicId && target.clinicId.toString() !== me.clinicId.toString()) {
+      return res.status(400).json({ success: false, message: "Doctor already belongs to another clinic" });
+    }
+
+    target.clinicId = me.clinicId;
+    await target.save();
+
+    res.status(200).json({
+      success: true,
+      message: `${target.name} added to your clinic`,
+      doctor: { id: target._id, name: target.name, phone: target.phone },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// DELETE /api/doctor/clinic/remove-doctor/:doctorId
+export const removeDoctorFromClinic = async (req, res) => {
+  try {
+    const me = await User.findById(req.user._id).select("clinicId");
+
+    if (!me?.clinicId) {
+      return res.status(400).json({ success: false, message: "You don't have a clinic" });
+    }
+
+    const { doctorId } = req.params;
+
+    if (doctorId === req.user._id.toString()) {
+      return res.status(400).json({ success: false, message: "You cannot remove yourself" });
+    }
+
+    const target = await User.findOne({
+      _id: doctorId,
+      role: "doctor",
+      clinicId: me.clinicId,
+    });
+
+    if (!target) {
+      return res.status(404).json({ success: false, message: "Doctor not found in your clinic" });
+    }
+
+    target.clinicId = null;
+    await target.save();
+
+    res.status(200).json({ success: true, message: `${target.name} removed from clinic` });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

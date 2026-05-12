@@ -27,11 +27,6 @@ import {
     assignPlanToDoctor,
     getAllAssignedPlans,
     adminAddWalletBalance,
-    createClinic,
-    getClinics,
-    updateClinic,
-    assignDoctorToClinic,
-    removeDoctorFromClinic,
 } from "../controllers/adminController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -100,12 +95,5 @@ router.delete("/plans/:id", deletePlan);
 router.post("/doctors/:id/assign-plan", assignPlanToDoctor);
 router.get("/plans/assigned", getAllAssignedPlans);
 router.post("/doctors/:id/wallet/add", adminAddWalletBalance);
-
-// clinic management
-router.post("/clinics", createClinic);
-router.get("/clinics", getClinics);
-router.patch("/clinics/:clinicId", updateClinic);
-router.post("/clinics/:clinicId/assign-doctor/:doctorId", assignDoctorToClinic);
-router.delete("/clinics/:clinicId/remove-doctor/:doctorId", removeDoctorFromClinic);
 
 export default router;
