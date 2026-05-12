@@ -1363,6 +1363,17 @@ export const buyPlan = async (req, res) => {
     await doctor.save();
 
     const balance = doctor.wallet?.balance ?? 0;
+    const ppt = doctor.tokenPlan.pricePerToken;
+
+    const io = req.app.get("io");
+    io.to(`doctor_${doctorId}`).emit("walletUpdated", {
+      walletBalance: balance,
+      pricePerToken: ppt ?? null,
+      tokensAvailable: ppt ? Math.floor(balance / ppt) : null,
+      planType: plan.planType,
+      isUnlimited,
+      validUntil: doctor.tokenPlan.validUntil,
+    });
 
     res.status(200).json({
       success: true,
@@ -1372,7 +1383,7 @@ export const buyPlan = async (req, res) => {
         planName: plan.name,
         planType: plan.planType,
         isUnlimited,
-        pricePerToken: doctor.tokenPlan.pricePerToken,
+        pricePerToken: ppt,
         validFrom: doctor.tokenPlan.validFrom,
         validUntil: doctor.tokenPlan.validUntil,
         ...(plan.planType === "pay_per_token" && {

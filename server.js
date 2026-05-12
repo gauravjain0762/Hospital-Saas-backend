@@ -71,18 +71,22 @@ app.set("io", io);
 io.on("connection", (socket) => {
   console.log(`[SOCKET] New connection | socketId=${socket.id}`);
 
-  // auto-join patient room from handshake auth (sent when app opens/reconnects)
-  const { patientId } = socket.handshake.auth || {};
-  console.log(`[SOCKET] Handshake auth | socketId=${socket.id} | patientId=${patientId || "none"}`);
+  // auto-join patient or doctor room from handshake auth
+  const { patientId, doctorId } = socket.handshake.auth || {};
+  console.log(`[SOCKET] Handshake auth | socketId=${socket.id} | patientId=${patientId || "none"} | doctorId=${doctorId || "none"}`);
 
   if (patientId) {
     const patientRoom = `patient_${patientId}`;
     socket.join(patientRoom);
-    const allRooms = Array.from(socket.rooms);
-    console.log(`[SOCKET] Auto-joined patientRoom=${patientRoom} | allRooms=${JSON.stringify(allRooms)}`);
+    console.log(`[SOCKET] Auto-joined patientRoom=${patientRoom}`);
     socket.emit("patientRegistered", { patientRoom, status: "joined" });
-  } else {
-    console.log(`[SOCKET] No patientId in handshake — skipping patient room (doctor or guest connection)`);
+  }
+
+  if (doctorId) {
+    const doctorRoom = `doctor_${doctorId}`;
+    socket.join(doctorRoom);
+    console.log(`[SOCKET] Auto-joined doctorRoom=${doctorRoom}`);
+    socket.emit("doctorRegistered", { doctorRoom, status: "joined" });
   }
 
   // patient joins doctor room
