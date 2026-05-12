@@ -11,6 +11,8 @@ const patientReportSchema = new mongoose.Schema(
       ref: "Patient",
       required: true,
     },
+    patientName: { type: String, default: "" },
+    mobile: { type: String, default: "" },
     subject: {
       type: String,
       required: true,

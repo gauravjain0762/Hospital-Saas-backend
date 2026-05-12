@@ -369,8 +369,8 @@ export const getAllPatientReports = async (req, res) => {
     const formatted = reports.map((r) => ({
       ticketId: r.ticketId,
       userType: "patient",
-      patientName: r.patientId?.fullName || "",
-      mobile: r.patientId?.mobile || "",
+      patientName: r.patientId?.fullName || r.patientName || "",
+      mobile: r.patientId?.mobile || r.mobile || "",
       subject: r.subject,
       category: r.category,
       priority: r.priority,

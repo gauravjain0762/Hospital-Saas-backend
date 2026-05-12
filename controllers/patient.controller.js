@@ -982,16 +982,25 @@ export const submitReport = async (req, res) => {
       return res.status(400).json({ success: false, message: "subject, category and priority are required" });
     }
 
-    const report = await PatientReport.create({ patientId, subject, category, priority, description });
-    await report.populate("patientId", "fullName mobile");
+    const patient = await Patient.findById(patientId).select("fullName mobile");
+
+    const report = await PatientReport.create({
+      patientId,
+      patientName: patient?.fullName || "",
+      mobile: patient?.mobile || "",
+      subject,
+      category,
+      priority,
+      description,
+    });
 
     res.status(201).json({
       success: true,
       message: "Report submitted successfully",
       report: {
         ticketId: report.ticketId,
-        patientName: report.patientId?.fullName || "",
-        mobile: report.patientId?.mobile || "",
+        patientName: report.patientName,
+        mobile: report.mobile,
         subject: report.subject,
         category: report.category,
         priority: report.priority,
