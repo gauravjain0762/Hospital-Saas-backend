@@ -1157,8 +1157,7 @@ export const getClinicById = async (req, res) => {
 
     const doctors = await User.find(
       { clinicId, role: "doctor", status: "approved" },
-      "name profilePhoto services experience doctorAvailable activeStatus clinic.consultationFee clinic.clinicName"
-    );
+    ).select("-password -otp -otpExpiry -employees.otp -employees.otpExpiry -documents -bankDetails");
 
     res.status(200).json({
       success: true,
@@ -1175,11 +1174,37 @@ export const getClinicById = async (req, res) => {
       doctors: doctors.map((d) => ({
         id: d._id,
         name: d.name,
-        profilePhoto: d.profilePhoto,
-        services: d.services,
+        profilePhoto: d.profilePhoto || null,
         experience: d.experience,
+        gender: d.gender,
+        rating: d.clinic?.rating ?? 0,
+        services: d.services,
+        qualifications: d.qualifications,
+        awards: d.awards,
+        achievements: d.achievements,
         doctorAvailable: d.doctorAvailable,
-        consultationFee: d.clinic?.consultationFee ?? null,
+        activeStatus: d.activeStatus,
+        availability: d.availability,
+        maxPatientsPerSlot: d.maxPatientsPerSlot ?? null,
+        clinic: {
+          clinicName: d.clinic?.clinicName || "",
+          about: d.clinic?.about || "",
+          address: d.clinic?.address || "",
+          city: d.clinic?.city || "",
+          state: d.clinic?.state || "",
+          pincode: d.clinic?.pincode || "",
+          consultationFee: d.clinic?.consultationFee ?? 0,
+          freeFollowupDays: d.clinic?.freeFollowupDays ?? 0,
+          rating: d.clinic?.rating ?? 0,
+          latitude: d.clinic?.latitude ?? null,
+          longitude: d.clinic?.longitude ?? null,
+          photos: d.clinic?.photos || [],
+          googleBusinessLink: d.clinic?.googleBusinessLink || "",
+        },
+        paymentDetails: {
+          paymentMethod: d.paymentDetails?.paymentMethod,
+          upiId: d.paymentDetails?.upiId,
+        },
       })),
     });
   } catch (error) {
