@@ -37,6 +37,7 @@ import { getTodayQueue,
     getMyClinic,
     addDoctorToClinic,
     removeDoctorFromClinic,
+    getAppointmentStats,
  } from "../controllers/doctor.controller.js";
 
 router.get("/profile", protect, getDoctorProfile);
@@ -75,5 +76,7 @@ router.get("/wallet/history", protect, getWalletHistory);
 router.get("/clinic", protect, getMyClinic);
 router.post("/clinic/add-doctor", protect, addDoctorToClinic);
 router.delete("/clinic/remove-doctor/:doctorId", protect, removeDoctorFromClinic);
+
+router.get("/appointment-stats", protect, getAppointmentStats);
 
 export default router;

@@ -30,6 +30,7 @@ import {
     getUnreadCount,
 } from "../controllers/patient.controller.js";
 
+import { getLegalContent } from "../controllers/adminController.js";
 import patientAuth from "../middleware/patientAuth.js";
 import upload from "../utils/multer.js";
 
@@ -81,5 +82,15 @@ router.get("/clinic/:clinicId", getClinicById);
 
 router.get("/notifications", patientAuth, getNotifications);
 router.get("/notifications/unread-count", patientAuth, getUnreadCount);
+
+// Public legal routes (no auth required)
+router.get("/legal/privacy_policy_patient", (req, res, next) => {
+  req.params.type = "privacy_policy_patient";
+  next();
+}, getLegalContent);
+router.get("/legal/terms_patient", (req, res, next) => {
+  req.params.type = "terms_patient";
+  next();
+}, getLegalContent);
 
 export default router; // ✅ IMPORTANT

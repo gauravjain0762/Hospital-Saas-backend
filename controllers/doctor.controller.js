@@ -1087,6 +1087,35 @@ export const getStep3 = async (req, res) => {
   }
 };
 
+// GET /api/doctor/appointment-stats
+export const getAppointmentStats = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    const [totalBooked, completed, upcoming] = await Promise.all([
+      Appointment.countDocuments({ doctorId }),
+      Appointment.countDocuments({ doctorId, status: "completed" }),
+      Appointment.countDocuments({
+        doctorId,
+        date: { $gte: todayStr },
+        status: { $in: ["waiting", "in_progress"] },
+      }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalBooked,
+        completed,
+        upcoming,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // PATCH /api/doctor/step3
 export const updateStep3 = async (req, res) => {
   try {
