@@ -24,12 +24,17 @@ export const getPendingUsers = async (req, res) => {
             .skip(skip)
             .limit(limit);
 
+        const usersWithClinic = users.map((u) => ({
+            ...u.toObject(),
+            clinicId: u.clinicId ?? null,
+        }));
+
         res.json({
             success: true,
             total,
             page,
             totalPages: Math.ceil(total / limit),
-            users,
+            users: usersWithClinic,
         });
     } catch (err) {
         res.status(500).json({ message: err.message });
