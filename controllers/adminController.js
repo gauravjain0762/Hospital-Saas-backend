@@ -52,6 +52,7 @@ export const getAllUsers = async (req, res) => {
             role: { $ne: "admin" },
         })
             .select("-password -otp -otpExpiry -employees.otp -employees.otpExpiry")
+            .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
 
@@ -69,6 +70,7 @@ export const getAllUsers = async (req, res) => {
 
         const usersWithCounts = users.map((u) => ({
             ...u.toObject(),
+            clinicId: u.clinicId ?? null,
             totalAppointments: countMap[u._id.toString()] || 0,
         }));
 
