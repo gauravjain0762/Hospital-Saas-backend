@@ -912,8 +912,32 @@ export const createWalkInAppointment = async (req, res) => {
     queue.lastIssuedToken = tokenNumber;
     await queue.save();
 
-    const consultationFee = doctor.clinic?.consultationFee || 0;
-    const paymentStatus = paymentMethod === "online" ? "pending" : "cash_pending";
+    let consultationFee = doctor.clinic?.consultationFee || 0;
+    let isFollowup = false;
+
+    const freeFollowupDays = doctor.clinic?.freeFollowupDays || 0;
+    if (freeFollowupDays > 0) {
+      const lastCompleted = await Appointment.findOne({
+        doctorId,
+        patientId: patient._id,
+        status: "completed",
+      }).sort({ completedAt: -1 });
+
+      if (lastCompleted?.completedAt) {
+        const daysSinceLast =
+          (Date.now() - new Date(lastCompleted.completedAt)) / (1000 * 60 * 60 * 24);
+        if (daysSinceLast <= freeFollowupDays) {
+          isFollowup = true;
+          consultationFee = 0;
+        }
+      }
+    }
+
+    const paymentStatus = isFollowup
+      ? "free_followup"
+      : paymentMethod === "online"
+      ? "pending"
+      : "cash_pending";
 
     const docPrefix = (doctor.name || "XX").replace(/\s+/g, "").substring(0, 2).toUpperCase();
     const patPrefix = (fullName || "XX").replace(/\s+/g, "").substring(0, 2).toUpperCase();
@@ -935,7 +959,7 @@ export const createWalkInAppointment = async (req, res) => {
       paymentMethod,
       paymentStatus,
       consultationFee,
-      isFollowup: false,
+      isFollowup,
       status: "waiting",
     });
 
@@ -951,6 +975,7 @@ export const createWalkInAppointment = async (req, res) => {
       appointmentId,
       consultationFee,
       paymentStatus,
+      isFollowup,
       appointment,
     });
 
