@@ -335,6 +335,7 @@ export const getDoctorByIdFormatted = async (req, res) => {
         city: doctor.clinic?.city || "",
         state: doctor.clinic?.state || "",
         pincode: doctor.clinic?.pincode || "",
+        country: doctor.clinic?.country || "",
         consultationFee: doctor.clinic?.consultationFee ?? 0,
         freeFollowupDays: doctor.clinic?.freeFollowupDays ?? 0,
         rating: doctor.clinic?.rating ?? 0,

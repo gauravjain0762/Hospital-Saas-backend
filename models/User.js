@@ -91,6 +91,7 @@ rejections: {
       city: String,
       state: String,
       pincode: String,
+      country: String,
       consultationFee: Number,
       freeFollowupDays: { type: Number, default: 0 },
       rating: { type: Number, default: 0 },

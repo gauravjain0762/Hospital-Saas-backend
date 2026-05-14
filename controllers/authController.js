@@ -280,6 +280,7 @@ export const registerStep2 = async (req, res) => {
       city,
       state,
       pincode,
+      country,
       consultationFee,
       freeFollowupDays,
       rating,
@@ -342,6 +343,7 @@ export const registerStep2 = async (req, res) => {
   city,
   state,
   pincode,
+  country,
 
   consultationFee: Number(consultationFee),
   freeFollowupDays: Number(freeFollowupDays) || 0,
@@ -367,6 +369,7 @@ export const registerStep2 = async (req, res) => {
       city,
       state,
       pincode,
+      country,
       phone: user.phone,
       photos: photoUrls.length ? photoUrls : undefined,
     };
