@@ -11,6 +11,7 @@ import authRoutes from "./routes/authRoutes.js";
 import patientRoutes from "./routes/patient.routes.js";
 import doctorRoutes from "./routes/doctor.routes.js";
 import User from "./models/User.js";
+import Patient from "./models/patient.model.js";
 import analyticsRoutes from "./routes/Analytics.routes.js";
 import { checkAppVersion, getLegalContent } from "./controllers/adminController.js";
 
@@ -68,7 +69,7 @@ const io = new Server(server, {
 app.set("io", io);
 
 // socket connection
-io.on("connection", (socket) => {
+io.on("connection", async (socket) => {
   console.log(`[SOCKET] New connection | socketId=${socket.id}`);
 
   // auto-join patient or doctor room from handshake auth
@@ -80,6 +81,18 @@ io.on("connection", (socket) => {
     socket.join(patientRoom);
     console.log(`[SOCKET] Auto-joined patientRoom=${patientRoom}`);
     socket.emit("patientRegistered", { patientRoom, status: "joined" });
+
+    // auto-join city room from DB so it always matches doctor.clinic.city
+    try {
+      const patient = await Patient.findById(patientId).select("city").lean();
+      if (patient?.city) {
+        const cityRoom = `city_${patient.city.toLowerCase().trim()}`;
+        socket.join(cityRoom);
+        console.log(`[SOCKET] Auto-joined cityRoom=${cityRoom} for patient=${patientId}`);
+      }
+    } catch (err) {
+      console.error(`[SOCKET] Failed to auto-join city room for patient=${patientId}:`, err.message);
+    }
   }
 
   if (doctorId) {
