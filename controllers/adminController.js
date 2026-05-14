@@ -103,13 +103,14 @@ export const approveUser = async (req, res) => {
     user.activeStatus = "active";
     await user.save();
 
-    //send approval email
-    await sendApprovalEmail(user.email);
-
     res.json({
         success: true,
         message: "User approved, activated & email sent",
     });
+
+    sendApprovalEmail(user.email).catch(err =>
+        console.error("[EMAIL] Approval email failed:", err.message)
+    );
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
@@ -153,12 +154,9 @@ export const rejectUser = async (req, res) => {
 
     await user.save();
 
-    // ✅ Send rejection email
     const combinedReason = rejections
       .map(r => `Step ${r.step}: ${r.reason}`)
       .join("\n");
-
-    await sendRejectionEmail(user.email, combinedReason);
 
     res.json({
       success: true,
@@ -166,6 +164,10 @@ export const rejectUser = async (req, res) => {
       rejections: user.rejections,
       redirectToStep: minStep,
     });
+
+    sendRejectionEmail(user.email, combinedReason).catch(err =>
+      console.error("[EMAIL] Rejection email failed:", err.message)
+    );
 
   } catch (err) {
     res.status(500).json({ message: err.message });
