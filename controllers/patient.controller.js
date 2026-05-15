@@ -668,7 +668,7 @@ export const getMyAppointments = async (req, res) => {
 
       // estimated visit time
       let estimatedTime = null;
-      if (["waiting", "in_progress"].includes(item.status) && item.slot) {
+      if (["waiting", "in_progress", "completed"].includes(item.status) && item.slot) {
         const [startPart, endPart] = item.slot.split(" - ").map((s) => s.trim());
         const [startHour, startMin] = startPart.split(":").map(Number);
         const [endHour, endMin] = endPart.split(":").map(Number);
@@ -676,21 +676,29 @@ export const getMyAppointments = async (req, res) => {
         const maxPts = item.doctorId?.maxPatientsPerSlot || 1;
         const minPerPatient = Math.floor(slotDuration / maxPts);
 
-        const waitingAhead = await Appointment.countDocuments({
-          doctorId: item.doctorId?._id,
-          date: item.date,
-          slot: item.slot,
-          status: "waiting",
-          tokenNumber: { $lt: item.tokenNumber },
-        });
-
-        if (waitingAhead === 0) {
-          estimatedTime = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
-        } else {
+        if (item.status === "completed") {
+          // for completed appointments always use formula — no live queue check needed
           const totalMin = (startHour * 60 + startMin) + item.tokenNumber * minPerPatient;
           const estDate = new Date();
           estDate.setHours(Math.floor(totalMin / 60) % 24, totalMin % 60, 0, 0);
           estimatedTime = estDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+        } else {
+          const waitingAhead = await Appointment.countDocuments({
+            doctorId: item.doctorId?._id,
+            date: item.date,
+            slot: item.slot,
+            status: "waiting",
+            tokenNumber: { $lt: item.tokenNumber },
+          });
+
+          if (waitingAhead === 0) {
+            estimatedTime = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+          } else {
+            const totalMin = (startHour * 60 + startMin) + item.tokenNumber * minPerPatient;
+            const estDate = new Date();
+            estDate.setHours(Math.floor(totalMin / 60) % 24, totalMin % 60, 0, 0);
+            estimatedTime = estDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+          }
         }
       }
 
@@ -869,7 +877,7 @@ export const getAppointmentDetails = async (req, res) => {
       patientId,
     }).populate({
       path: "doctorId",
-      select: "name clinic profilePhoto",
+      select: "name clinic profilePhoto maxPatientsPerSlot",
     });
 
     if (!appointment) {
@@ -883,6 +891,40 @@ export const getAppointmentDetails = async (req, res) => {
 
     const displayId =
       "APT" + String(appointment._id).slice(-4).toUpperCase();
+
+    let estimatedTime = null;
+    if (["waiting", "in_progress", "completed"].includes(appointment.status) && appointment.slot) {
+      const [startPart, endPart] = appointment.slot.split(" - ").map((s) => s.trim());
+      const [startHour, startMin] = startPart.split(":").map(Number);
+      const [endHour, endMin] = endPart.split(":").map(Number);
+      const slotDuration = (endHour * 60 + endMin) - (startHour * 60 + startMin);
+      const maxPts = doctor?.maxPatientsPerSlot || 1;
+      const minPerPatient = Math.floor(slotDuration / maxPts);
+
+      if (appointment.status === "completed") {
+        const totalMin = (startHour * 60 + startMin) + appointment.tokenNumber * minPerPatient;
+        const estDate = new Date();
+        estDate.setHours(Math.floor(totalMin / 60) % 24, totalMin % 60, 0, 0);
+        estimatedTime = estDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+      } else {
+        const waitingAhead = await Appointment.countDocuments({
+          doctorId: doctor?._id,
+          date: appointment.date,
+          slot: appointment.slot,
+          status: "waiting",
+          tokenNumber: { $lt: appointment.tokenNumber },
+        });
+
+        if (waitingAhead === 0) {
+          estimatedTime = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+        } else {
+          const totalMin = (startHour * 60 + startMin) + appointment.tokenNumber * minPerPatient;
+          const estDate = new Date();
+          estDate.setHours(Math.floor(totalMin / 60) % 24, totalMin % 60, 0, 0);
+          estimatedTime = estDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+        }
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -911,6 +953,7 @@ export const getAppointmentDetails = async (req, res) => {
             doctor?.clinic?.googleBusinessLink || "",
         },
 
+        estimatedTime,
         reminderMessage:
           "Please arrive 10 minutes before your appointment time",
       },
