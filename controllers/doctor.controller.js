@@ -486,6 +486,14 @@ export const toggleDutyStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: "Doctor not found" });
     }
 
+    if (!doctorAvailable) {
+      const io = req.app.get("io");
+      io.to(`viewing_doctor_${doctorId}`).emit("doctorUnavailable", {
+        doctorId: String(doctorId),
+        reason: "off_duty",
+      });
+    }
+
     // send notification to all today's waiting patients when doctor goes ON DUTY
     if (doctorAvailable) {
       // Use IST (UTC+5:30) date — server runs UTC but doctors are in India

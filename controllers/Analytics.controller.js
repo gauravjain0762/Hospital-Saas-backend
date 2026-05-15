@@ -86,6 +86,9 @@ export const getDoctorAnalytics = async (req, res) => {
     const waitingAppointments = appointments.filter(
       (a) => a.status === "waiting"
     ).length;
+    const noShowAppointments = appointments.filter(
+      (a) => a.status === "no_show"
+    ).length;
 
     // ── 2. TOTAL PAYMENTS ──────────────────────────────────────────────
     const paidAppointments = appointments.filter(
@@ -134,6 +137,7 @@ export const getDoctorAnalytics = async (req, res) => {
           completed: completedAppointments,
           cancelled: cancelledAppointments,
           waiting: waitingAppointments,
+          no_show: noShowAppointments,
         },
         payments: {
           totalRevenue,

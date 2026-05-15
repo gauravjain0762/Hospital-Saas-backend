@@ -79,7 +79,7 @@ export const verifyOtp = async (req, res) => {
 
         // generate token
         const token = jwt.sign(
-            { id: patient._id, role: "patient" },
+            { id: patient._id, role: "patient", tokenVersion: patient.tokenVersion },
             process.env.JWT_SECRET,
             { expiresIn: "7d" }
         );

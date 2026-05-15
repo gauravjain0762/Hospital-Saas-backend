@@ -71,7 +71,8 @@ const appointmentSchema = new mongoose.Schema(
       "in_progress",
       "completed",
       "cancelled",
-      "skipped"
+      "skipped",
+      "no_show",
     ],
     default: "waiting",
   },

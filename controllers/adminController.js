@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import Appointment from "../models/appointment.model.js";
+import Patient from "../models/patient.model.js";
 import AppVersion from "../models/appVersion.model.js";
 import Report from "../models/report.model.js";
 import LegalContent from "../models/legalContent.model.js";
@@ -197,6 +198,16 @@ export const toggleDoctorActiveStatus = async (req, res) => {
     user.activeStatus = activeStatus;
     await user.save();
 
+    if (activeStatus === "inactive") {
+      const patientIds = await Appointment.distinct("patientId", { doctorId: id });
+      if (patientIds.length > 0) {
+        await Patient.updateMany(
+          { _id: { $in: patientIds } },
+          { $inc: { tokenVersion: 1 } }
+        );
+      }
+    }
+
     res.json({
       success: true,
       message: `Doctor marked as ${activeStatus}`,
@@ -215,10 +226,18 @@ export const deleteDoctor = async (req, res) => {
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ success: false, message: "Doctor not found" });
  
-    // delete doctor + all their appointments
+    // invalidate tokens of all patients who had appointments with this doctor
+    const patientIds = await Appointment.distinct("patientId", { doctorId: id });
+    if (patientIds.length > 0) {
+      await Patient.updateMany(
+        { _id: { $in: patientIds } },
+        { $inc: { tokenVersion: 1 } }
+      );
+    }
+
     await Appointment.deleteMany({ doctorId: id });
     await User.findByIdAndDelete(id);
- 
+
     res.json({ success: true, message: "Doctor and their appointments deleted successfully" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -234,9 +253,18 @@ export const deleteDoctors = async (req, res) => {
       return res.status(400).json({ success: false, message: "ids array is required" });
  
     // delete all their appointments first
+    // invalidate tokens of all patients who had appointments with these doctors
+    const patientIds = await Appointment.distinct("patientId", { doctorId: { $in: ids } });
+    if (patientIds.length > 0) {
+      await Patient.updateMany(
+        { _id: { $in: patientIds } },
+        { $inc: { tokenVersion: 1 } }
+      );
+    }
+
     await Appointment.deleteMany({ doctorId: { $in: ids } });
     await User.deleteMany({ _id: { $in: ids } });
- 
+
     res.json({ success: true, message: `${ids.length} doctor(s) deleted successfully`, deletedCount: ids.length });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

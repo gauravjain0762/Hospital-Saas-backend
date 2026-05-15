@@ -12,6 +12,7 @@ import patientRoutes from "./routes/patient.routes.js";
 import doctorRoutes from "./routes/doctor.routes.js";
 import User from "./models/User.js";
 import Patient from "./models/patient.model.js";
+import Appointment from "./models/appointment.model.js";
 import analyticsRoutes from "./routes/Analytics.routes.js";
 import { checkAppVersion, getLegalContent } from "./controllers/adminController.js";
 
@@ -128,10 +129,40 @@ io.on("connection", async (socket) => {
     console.log(`[SOCKET] leaveCityRoom | socketId=${socket.id} | room=${room}`);
   });
 
+  // patient opens a doctor's profile page
+  socket.on("viewDoctor", (doctorId) => {
+    const room = `viewing_doctor_${doctorId}`;
+    socket.join(room);
+    console.log(`[SOCKET] viewDoctor | socketId=${socket.id} | room=${room}`);
+  });
+
+  // patient closes a doctor's profile page
+  socket.on("leaveDoctor", (doctorId) => {
+    const room = `viewing_doctor_${doctorId}`;
+    socket.leave(room);
+    console.log(`[SOCKET] leaveDoctor | socketId=${socket.id} | room=${room}`);
+  });
+
   socket.on("disconnect", (reason) => {
     console.log(`[SOCKET] Disconnected | socketId=${socket.id} | reason=${reason}`);
   });
 });
+
+// mark no-show: any waiting/in_progress appointment from a past date becomes no_show
+cron.schedule("1 0 * * *", async () => {
+  try {
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const today = new Date(Date.now() + istOffset).toISOString().split("T")[0];
+
+    const result = await Appointment.updateMany(
+      { status: { $in: ["waiting", "in_progress"] }, date: { $lt: today } },
+      { status: "no_show" }
+    );
+    console.log(`[CRON] 12:01 AM IST — marked ${result.modifiedCount} appointment(s) as no_show`);
+  } catch (err) {
+    console.error("[CRON] Failed to mark no-show appointments:", err.message);
+  }
+}, { timezone: "Asia/Kolkata" });
 
 // reset doctorAvailable at 11:59 PM every night — never touches activeStatus
 cron.schedule("59 23 * * *", async () => {
