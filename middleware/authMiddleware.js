@@ -21,7 +21,7 @@ export const protect = async (req, res, next) => {
       return res.status(401).json({ success: false, forceLogout: true, message: "User not found" });
     }
 
-    if (decoded.tokenVersion !== req.user.tokenVersion) {
+    if (req.user.role !== "admin" && decoded.tokenVersion !== req.user.tokenVersion) {
       return res.status(401).json({ success: false, forceLogout: true, message: "Session expired. Please log in again." });
     }
 
