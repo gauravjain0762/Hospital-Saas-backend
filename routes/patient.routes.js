@@ -10,6 +10,7 @@ import {
     getCategories,
     getDoctors,
     getDoctorById,
+    getDoctorByPhone,
     getDoctorByIdFormatted,
     bookAppointment,
     getMyAppointments,
@@ -51,6 +52,7 @@ router.get("/categories", getCategories);
 
 router.get("/doctors", getDoctors);
 
+router.get("/doctors/by-phone/:phone", getDoctorByPhone);
 router.get("/doctors/:id", getDoctorById);
 
 router.get("/doctorsbyid/:id", getDoctorByIdFormatted);

@@ -311,6 +311,46 @@ export const getDoctorById = async (req, res) => {
 };
 
 
+export const getDoctorByPhone = async (req, res) => {
+  try {
+    const { phone } = req.params;
+
+    // Check doctor's own phone first
+    let doctor = await User.findOne({
+      phone,
+      role: "doctor",
+      status: "approved",
+    }).select("-password -employees.otp -employees.otpExpiry");
+
+    // Fallback: check if phone belongs to an employee of any doctor
+    if (!doctor) {
+      doctor = await User.findOne({
+        role: "doctor",
+        status: "approved",
+        "employees.phone": phone,
+        "employees.verified": true,
+      }).select("-password -employees.otp -employees.otpExpiry");
+    }
+
+    if (!doctor) {
+      return res.status(404).json({
+        success: false,
+        message: "Doctor not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      doctor,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 export const getDoctorByIdFormatted = async (req, res) => {
   try {
     const doctor = await User.findOne({
