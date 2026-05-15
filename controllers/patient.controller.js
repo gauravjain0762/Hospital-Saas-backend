@@ -649,7 +649,7 @@ export const getMyAppointments = async (req, res) => {
       Appointment.countDocuments({ patientId, status: { $in: ["waiting", "in_progress"] } }),
       Appointment.countDocuments({ patientId, status: "completed" }),
       Appointment.find(query)
-        .populate({ path: "doctorId", select: "name profilePhoto services clinic experience" })
+        .populate({ path: "doctorId", select: "name profilePhoto services clinic experience maxPatientsPerSlot" })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
@@ -665,6 +665,34 @@ export const getMyAppointments = async (req, res) => {
 
       const currentToken = queue?.currentToken || 0;
 
+      // estimated visit time
+      let estimatedTime = null;
+      if (["waiting", "in_progress"].includes(item.status) && item.slot) {
+        const [startPart, endPart] = item.slot.split(" - ").map((s) => s.trim());
+        const [startHour, startMin] = startPart.split(":").map(Number);
+        const [endHour, endMin] = endPart.split(":").map(Number);
+        const slotDuration = (endHour * 60 + endMin) - (startHour * 60 + startMin);
+        const maxPts = item.doctorId?.maxPatientsPerSlot || 1;
+        const minPerPatient = Math.floor(slotDuration / maxPts);
+
+        const waitingAhead = await Appointment.countDocuments({
+          doctorId: item.doctorId?._id,
+          date: item.date,
+          slot: item.slot,
+          status: "waiting",
+          tokenNumber: { $lt: item.tokenNumber },
+        });
+
+        if (waitingAhead === 0) {
+          estimatedTime = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+        } else {
+          const totalMin = (startHour * 60 + startMin) + item.tokenNumber * minPerPatient;
+          const estDate = new Date();
+          estDate.setHours(Math.floor(totalMin / 60) % 24, totalMin % 60, 0, 0);
+          estimatedTime = estDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+        }
+      }
+
       result.push({
         id: item._id,
         status: item.status,
@@ -673,6 +701,7 @@ export const getMyAppointments = async (req, res) => {
         date: item.date,
         slot: item.slot,
         time: item.time,
+        estimatedTime,
         doctor: {
           id: item.doctorId?._id || "",
           name: item.doctorId?.name || "",
