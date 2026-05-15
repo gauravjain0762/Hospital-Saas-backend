@@ -30,6 +30,7 @@ import {
     getNotifications,
     getUnreadCount,
     getAppointmentStats,
+    getVisitTimeEstimate,
 } from "../controllers/patient.controller.js";
 
 import { getLegalContent } from "../controllers/adminController.js";
@@ -84,6 +85,7 @@ router.post("/doctors/:id/review", patientAuth, submitDoctorReview);
 router.get("/doctors/:id/reviews", getDoctorReviews);
 
 router.get("/clinic/:clinicId", getClinicById);
+router.get("/visit-time", getVisitTimeEstimate);
 
 router.get("/notifications", patientAuth, getNotifications);
 router.get("/notifications/unread-count", patientAuth, getUnreadCount);

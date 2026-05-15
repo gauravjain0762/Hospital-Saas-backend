@@ -1360,3 +1360,82 @@ export const getClinicById = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// GET /api/patient/visit-time?doctorId=...&date=...&slot=...&tokenNumber=...
+export const getVisitTimeEstimate = async (req, res) => {
+  try {
+    const { doctorId, date, slot, tokenNumber } = req.query;
+
+    if (!doctorId || !date || !slot || !tokenNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "doctorId, date, slot and tokenNumber are required",
+      });
+    }
+
+    const token = parseInt(tokenNumber);
+    if (isNaN(token) || token < 1) {
+      return res.status(400).json({ success: false, message: "Invalid tokenNumber" });
+    }
+
+    const doctor = await User.findById(doctorId).select("maxPatientsPerSlot");
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: "Doctor not found" });
+    }
+
+    const maxPatientsPerSlot = doctor.maxPatientsPerSlot || 1;
+
+    // slot format: "HH:MM - HH:MM"
+    const [startPart, endPart] = slot.split(" - ").map((s) => s.trim());
+    const [startHour, startMin] = startPart.split(":").map(Number);
+    const [endHour, endMin] = endPart.split(":").map(Number);
+
+    const slotStartMinutes = startHour * 60 + startMin;
+    const slotEndMinutes = endHour * 60 + endMin;
+    const slotDurationMinutes = slotEndMinutes - slotStartMinutes;
+
+    const minutesPerPatient = Math.floor(slotDurationMinutes / maxPatientsPerSlot);
+
+    // patients still waiting ahead of this token in the same slot
+    const waitingAhead = await Appointment.countDocuments({
+      doctorId,
+      date,
+      slot,
+      status: "waiting",
+      tokenNumber: { $lt: token },
+    });
+
+    let estimatedTime;
+
+    if (waitingAhead === 0) {
+      // no one waiting ahead — patient can be seen now
+      estimatedTime = new Date().toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+    } else {
+      // estimated = slot start + tokenNumber * minutesPerPatient
+      const totalMinutes = slotStartMinutes + token * minutesPerPatient;
+      const estHour = Math.floor(totalMinutes / 60) % 24;
+      const estMin = totalMinutes % 60;
+      const estDate = new Date();
+      estDate.setHours(estHour, estMin, 0, 0);
+      estimatedTime = estDate.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+    }
+
+    res.json({
+      success: true,
+      tokenNumber: token,
+      estimatedTime,
+      minutesPerPatient,
+      waitingAhead,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

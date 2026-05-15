@@ -72,6 +72,11 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
 
+    tokenVersion: {
+      type: Number,
+      default: 0,
+    },
+
 rejections: {
   type: [
     {

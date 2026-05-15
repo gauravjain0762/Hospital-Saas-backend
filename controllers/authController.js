@@ -133,7 +133,7 @@ export const verifyOtp = async (req, res) => {
       await doctorWithEmployee.save();
 
       const token = jwt.sign(
-        { id: doctorWithEmployee._id, isEmployee: true, employeePhone: phone, employeeName: emp.name },
+        { id: doctorWithEmployee._id, isEmployee: true, employeePhone: phone, employeeName: emp.name, tokenVersion: doctorWithEmployee.tokenVersion },
         process.env.JWT_SECRET,
         { expiresIn: "7d" }
       );
@@ -172,7 +172,7 @@ export const verifyOtp = async (req, res) => {
 
     // generate token
     const token = jwt.sign(
-      { id: user._id },
+      { id: user._id, tokenVersion: user.tokenVersion },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
