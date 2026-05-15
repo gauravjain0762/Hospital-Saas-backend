@@ -400,6 +400,7 @@ export const getDoctorByIdFormatted = async (req, res) => {
           activeStatus: doctor.activeStatus,
           availability: doctor.availability,
           maxPatientsPerSlot: doctor.maxPatientsPerSlot ?? null,
+          consultationFee: doctor.clinic?.consultationFee ?? 0,
           paymentDetails: {
             paymentMethod: doctor.paymentDetails?.paymentMethod,
             upiId: doctor.paymentDetails?.upiId,
