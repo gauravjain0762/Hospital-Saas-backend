@@ -859,6 +859,24 @@ export const adminAddWalletBalance = async (req, res) => {
   }
 };
 
+// GET /api/admin/dashboard/stats
+export const getDashboardStats = async (req, res) => {
+  try {
+    const [totalPatients, totalAppointments] = await Promise.all([
+      Patient.countDocuments(),
+      Appointment.countDocuments(),
+    ]);
+
+    res.json({
+      success: true,
+      totalPatients,
+      totalAppointments,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // GET /api/admin/plans/assigned  — all doctors with an active plan
 export const getAllAssignedPlans = async (req, res) => {
   try {

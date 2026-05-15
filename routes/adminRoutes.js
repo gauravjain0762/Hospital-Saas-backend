@@ -27,6 +27,7 @@ import {
     assignPlanToDoctor,
     getAllAssignedPlans,
     adminAddWalletBalance,
+    getDashboardStats,
 } from "../controllers/adminController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -41,6 +42,7 @@ const router = express.Router();
 router.use(protect, isAdmin);
 
 //get pending users
+router.get("/dashboard/stats", getDashboardStats);
 router.get("/pending-users", getPendingUsers);
 
 //all users
