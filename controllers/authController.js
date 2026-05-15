@@ -81,6 +81,8 @@ if (existingUser.status === "pending" && !hasRejections && existingUser.registra
       return res.json({ success: true, message: "OTP sent successfully", mode: "employee" });
     }
 
+    const isNewDoctor = !(await User.exists({ phone }));
+
     const fixedOtp = process.env.FIXED_OTP?.trim();
     const otp = fixedOtp || generateOtp();
 
@@ -100,6 +102,7 @@ if (existingUser.status === "pending" && !hasRejections && existingUser.registra
     res.json({
       success: true,
       message: "OTP sent successfully",
+      ...(isNewDoctor && { isNewDoctor: true }),
     });
   } catch (err) {
     console.error("SEND OTP ERROR:", err); 
