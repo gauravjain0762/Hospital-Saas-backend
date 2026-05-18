@@ -1386,6 +1386,7 @@ export const getClinicById = async (req, res) => {
     res.status(200).json({
       success: true,
       clinic: {
+        id: clinic._id,
         clinicName: clinic.clinicName || "",
         about: firstDoc?.clinic?.about || "",
         address: clinic.address || "",
