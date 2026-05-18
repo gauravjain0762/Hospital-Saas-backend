@@ -663,8 +663,11 @@ export const getMyAppointments = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
+    const STATUS_MAP = { pending: "waiting", complete: "completed" };
+    const mappedStatus = STATUS_MAP[status] || status;
+
     const query = { patientId };
-    if (status) query.status = status;
+    if (mappedStatus) query.status = mappedStatus;
 
     if (clinicId) {
       const clinicDoctors = await User.find({ clinicId, role: "doctor", status: "approved" }).select("_id");
