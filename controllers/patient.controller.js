@@ -1453,13 +1453,21 @@ export const getVisitTimeEstimate = async (req, res) => {
 
     const maxPatientsPerSlot = doctor.maxPatientsPerSlot || 1;
 
-    // slot format: "HH:MM - HH:MM"
-    const [startPart, endPart] = slot.split(" - ").map((s) => s.trim());
-    const [startHour, startMin] = startPart.split(":").map(Number);
-    const [endHour, endMin] = endPart.split(":").map(Number);
+    // supports both "HH:MM" (24-hr) and "H:MM AM/PM" (12-hr) formats
+    const parseTime = (str) => {
+      const s = str.trim();
+      const isPM = /pm/i.test(s);
+      const isAM = /am/i.test(s);
+      const [h, m] = s.replace(/[a-zA-Z\s]/g, "").split(":").map(Number);
+      let hour = h;
+      if (isPM && hour !== 12) hour += 12;
+      if (isAM && hour === 12) hour = 0;
+      return hour * 60 + (m || 0);
+    };
 
-    const slotStartMinutes = startHour * 60 + startMin;
-    const slotEndMinutes = endHour * 60 + endMin;
+    const [startPart, endPart] = slot.split(" - ").map((s) => s.trim());
+    const slotStartMinutes = parseTime(startPart);
+    const slotEndMinutes = parseTime(endPart);
     const slotDurationMinutes = slotEndMinutes - slotStartMinutes;
 
     const minutesPerPatient = Math.floor(slotDurationMinutes / maxPatientsPerSlot);
