@@ -1472,28 +1472,13 @@ export const getVisitTimeEstimate = async (req, res) => {
       tokenNumber: { $lt: token },
     });
 
-    let estimatedTime;
-
-    if (waitingAhead === 0) {
-      // no one waiting ahead — patient can be seen now
-      estimatedTime = new Date().toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      });
-    } else {
-      // estimated = slot start + tokenNumber * minutesPerPatient
-      const totalMinutes = slotStartMinutes + token * minutesPerPatient;
-      const estHour = Math.floor(totalMinutes / 60) % 24;
-      const estMin = totalMinutes % 60;
-      const estDate = new Date();
-      estDate.setHours(estHour, estMin, 0, 0);
-      estimatedTime = estDate.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      });
-    }
+    // token 1 starts at slot start, token 2 at slotStart + 1*minutesPerPatient, etc.
+    const totalMinutes = slotStartMinutes + (token - 1) * minutesPerPatient;
+    const estHour = Math.floor(totalMinutes / 60) % 24;
+    const estMin = totalMinutes % 60;
+    const period = estHour >= 12 ? "PM" : "AM";
+    const displayHour = estHour % 12 || 12;
+    const estimatedTime = `${String(displayHour).padStart(2, "0")}:${String(estMin).padStart(2, "0")} ${period}`;
 
     res.json({
       success: true,
