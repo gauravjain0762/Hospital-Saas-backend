@@ -129,6 +129,21 @@ io.on("connection", async (socket) => {
     console.log(`[SOCKET] leaveCityRoom | socketId=${socket.id} | room=${room}`);
   });
 
+  // patient joins clinic room when opening clinic page — receives doctorStatusChanged events
+  socket.on("joinClinic", (clinicId) => {
+    const room = `clinic_${clinicId}`;
+    socket.join(room);
+    console.log(`[SOCKET] joinClinic | socketId=${socket.id} | room=${room}`);
+    socket.emit("joinedClinic", { room, status: "joined" });
+  });
+
+  // patient leaves clinic room when closing clinic page
+  socket.on("leaveClinic", (clinicId) => {
+    const room = `clinic_${clinicId}`;
+    socket.leave(room);
+    console.log(`[SOCKET] leaveClinic | socketId=${socket.id} | room=${room}`);
+  });
+
   // patient opens a doctor's profile page
   socket.on("viewDoctor", (doctorId) => {
     const room = `viewing_doctor_${doctorId}`;

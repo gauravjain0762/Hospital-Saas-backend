@@ -658,7 +658,7 @@ export const bookAppointment = async (req, res) => {
 export const getMyAppointments = async (req, res) => {
   try {
     const patientId = req.patient.id;
-    const { status } = req.query;
+    const { status, clinicId } = req.query;
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
@@ -666,16 +666,42 @@ export const getMyAppointments = async (req, res) => {
     const query = { patientId };
     if (status) query.status = status;
 
+    if (clinicId) {
+      const clinicDoctors = await User.find({ clinicId, role: "doctor", status: "approved" }).select("_id");
+      query.doctorId = { $in: clinicDoctors.map((d) => d._id) };
+    }
+
+    const baseCountQuery = clinicId ? { patientId, doctorId: query.doctorId } : { patientId };
+
     const [total, upcomingCount, completedCount, appointments] = await Promise.all([
       Appointment.countDocuments(query),
-      Appointment.countDocuments({ patientId, status: { $in: ["waiting", "in_progress"] } }),
-      Appointment.countDocuments({ patientId, status: "completed" }),
+      Appointment.countDocuments({ ...baseCountQuery, status: { $in: ["waiting", "in_progress"] } }),
+      Appointment.countDocuments({ ...baseCountQuery, status: "completed" }),
       Appointment.find(query)
-        .populate({ path: "doctorId", select: "name profilePhoto services clinic experience maxPatientsPerSlot" })
+        .populate({ path: "doctorId", select: "name profilePhoto services clinic clinicId experience maxPatientsPerSlot" })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
     ]);
+
+    const parseSlotTime = (str) => {
+      const s = str.trim();
+      const isPM = /pm/i.test(s);
+      const isAM = /am/i.test(s);
+      const [h, m] = s.replace(/[a-zA-Z\s]/g, "").split(":").map(Number);
+      let hour = h;
+      if (isPM && hour !== 12) hour += 12;
+      if (isAM && hour === 12) hour = 0;
+      return hour * 60 + (m || 0);
+    };
+
+    const formatTime = (totalMin) => {
+      const h = Math.floor(totalMin / 60) % 24;
+      const m = totalMin % 60;
+      const period = h >= 12 ? "PM" : "AM";
+      const displayH = h % 12 || 12;
+      return `${String(displayH).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
+    };
 
     const result = [];
 
@@ -687,40 +713,16 @@ export const getMyAppointments = async (req, res) => {
 
       const currentToken = queue?.currentToken || 0;
 
-      // estimated visit time
       let estimatedTime = null;
       if (["waiting", "in_progress", "completed"].includes(item.status) && item.slot) {
         const [startPart, endPart] = item.slot.split(" - ").map((s) => s.trim());
-        const [startHour, startMin] = startPart.split(":").map(Number);
-        const [endHour, endMin] = endPart.split(":").map(Number);
-        const slotDuration = (endHour * 60 + endMin) - (startHour * 60 + startMin);
+        const slotStart = parseSlotTime(startPart);
+        const slotEnd = parseSlotTime(endPart);
+        const slotDuration = slotEnd - slotStart;
         const maxPts = item.doctorId?.maxPatientsPerSlot || 1;
         const minPerPatient = Math.floor(slotDuration / maxPts);
-
-        if (item.status === "completed") {
-          // for completed appointments always use formula — no live queue check needed
-          const totalMin = (startHour * 60 + startMin) + item.tokenNumber * minPerPatient;
-          const estDate = new Date();
-          estDate.setHours(Math.floor(totalMin / 60) % 24, totalMin % 60, 0, 0);
-          estimatedTime = estDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
-        } else {
-          const waitingAhead = await Appointment.countDocuments({
-            doctorId: item.doctorId?._id,
-            date: item.date,
-            slot: item.slot,
-            status: "waiting",
-            tokenNumber: { $lt: item.tokenNumber },
-          });
-
-          if (waitingAhead === 0) {
-            estimatedTime = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
-          } else {
-            const totalMin = (startHour * 60 + startMin) + item.tokenNumber * minPerPatient;
-            const estDate = new Date();
-            estDate.setHours(Math.floor(totalMin / 60) % 24, totalMin % 60, 0, 0);
-            estimatedTime = estDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
-          }
-        }
+        const totalMin = slotStart + (item.tokenNumber - 1) * minPerPatient;
+        estimatedTime = formatTime(totalMin);
       }
 
       result.push({
@@ -741,6 +743,7 @@ export const getMyAppointments = async (req, res) => {
           experience: item.doctorId?.experience || 0,
         },
         clinic: {
+          clinicId: item.doctorId?.clinicId ?? null,
           clinicName: item.doctorId?.clinic?.clinicName || "",
           city: item.doctorId?.clinic?.city || "",
           googleBusinessLink: item.doctorId?.clinic?.googleBusinessLink || "",

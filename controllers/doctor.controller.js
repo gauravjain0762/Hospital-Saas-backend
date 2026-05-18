@@ -486,21 +486,11 @@ export const toggleDutyStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: "Doctor not found" });
     }
 
-    if (!doctorAvailable) {
-      const io = req.app.get("io");
-      io.to(`viewing_doctor_${doctorId}`).emit("doctorUnavailable", {
-        doctorId: String(doctorId),
-        reason: "off_duty",
-      });
-    }
-
     // send notification to all today's waiting patients when doctor goes ON DUTY
     if (doctorAvailable) {
-      // Use IST (UTC+5:30) date — server runs UTC but doctors are in India
       const istOffset = 5.5 * 60 * 60 * 1000;
       const today = new Date(Date.now() + istOffset).toISOString().split("T")[0];
 
-      // diagnostic: show all stored appointment dates for this doctor so we can catch format mismatches
       const allForDoctor = await Appointment.find({ doctorId }, "date status").lean();
       console.log(`[DUTY] Doctor ${doctor.name} went ON DUTY | today(IST)=${today} | all appointment dates=${JSON.stringify(allForDoctor.map(a => ({ date: a.date, status: a.status })))}`);
 
@@ -536,22 +526,17 @@ export const toggleDutyStatus = async (req, res) => {
       }
     }
 
-    // emit real-time availability to patients in same city
+    // emit real-time status change to patients viewing this clinic
     const io = req.app.get("io");
-    const city = doctor.clinic?.city?.toLowerCase().trim();
-    if (city) {
-      io.to(`city_${city}`).emit("doctorAvailable", {
-        doctorId: doctor._id,
+    const clinicId = doctor.clinicId ? String(doctor.clinicId) : null;
+    if (clinicId) {
+      io.to(`clinic_${clinicId}`).emit("doctorStatusChanged", {
+        doctorId: String(doctorId),
+        doctorAvailable,
         name: doctor.name,
         profilePhoto: doctor.profilePhoto || "",
-        specialization: doctor.services?.[0] || "",
-        experience: doctor.experience || 0,
-        clinicName: doctor.clinic?.clinicName || "",
-        city: doctor.clinic?.city || "",
-        activeStatus,
-        doctorAvailable,
       });
-      console.log(`[SOCKET] doctorAvailable emitted | city=${city} | doctorAvailable=${doctorAvailable}`);
+      console.log(`[SOCKET] doctorStatusChanged emitted | clinic_${clinicId} | doctorAvailable=${doctorAvailable}`);
     }
 
     res.status(200).json({
