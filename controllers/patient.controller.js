@@ -602,16 +602,30 @@ export const bookAppointment = async (req, res) => {
     });
     console.log(`[SOCKET] dashboardUpdated emitted | room=${room}`);
 
-    const patientsAhead = tokenNumber - queue.currentToken;
-    const mins = patientsAhead * 10;
+    const parseSlotTime = (str) => {
+      const s = str.trim();
+      const isPM = /pm/i.test(s);
+      const isAM = /am/i.test(s);
+      const [h, m] = s.replace(/[a-zA-Z\s]/g, "").split(":").map(Number);
+      let hour = h;
+      if (isPM && hour !== 12) hour += 12;
+      if (isAM && hour === 12) hour = 0;
+      return hour * 60 + (m || 0);
+    };
 
-    const eta = new Date();
-    eta.setMinutes(eta.getMinutes() + mins);
+    const [slotStartPart, slotEndPart] = slot.split(" - ").map((s) => s.trim());
+    const slotStartMins = parseSlotTime(slotStartPart);
+    const slotEndMins = parseSlotTime(slotEndPart);
+    const slotDuration = slotEndMins - slotStartMins;
+    const maxPatients = doctor.maxPatientsPerSlot || 1;
+    const minsPerPatient = Math.floor(slotDuration / maxPatients);
 
-    const expectedTime = eta.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const totalMins = slotStartMins + (tokenNumber - 1) * minsPerPatient;
+    const estHour = Math.floor(totalMins / 60) % 24;
+    const estMin = totalMins % 60;
+    const period = estHour >= 12 ? "PM" : "AM";
+    const displayHour = estHour % 12 || 12;
+    const expectedTime = `${String(displayHour).padStart(2, "0")}:${String(estMin).padStart(2, "0")} ${period}`;
 
     res.status(201).json({
       success: true,
