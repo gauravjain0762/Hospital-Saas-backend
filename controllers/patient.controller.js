@@ -1061,78 +1061,58 @@ export const getAppointmentPreview = async (req, res) => {
     const { date, slot } = req.query;
 
     if (!date || !slot) {
-      return res.status(400).json({
-        success: false,
-        message: "Date and slot required"
-      });
+      return res.status(400).json({ success: false, message: "date and slot are required" });
     }
 
-    const doctor = await User.findById(doctorId);
-
+    const doctor = await User.findById(doctorId).select("clinic maxPatientsPerSlot");
     if (!doctor) {
-      return res.status(404).json({
-        success: false,
-        message: "Doctor not found"
-      });
+      return res.status(404).json({ success: false, message: "Doctor not found" });
     }
 
-    // ✅ Current running token = highest DONE token
-    const lastDone = await Appointment.findOne({
-      doctorId,
-      date,
-      slot,
-      status: "done"
-    }).sort({ tokenNumber: -1 });
+    const [lastDone, lastBooked] = await Promise.all([
+      Appointment.findOne({ doctorId, date, slot, status: "completed" }).sort({ tokenNumber: -1 }),
+      Appointment.findOne({ doctorId, date, slot, status: { $ne: "cancelled" } }).sort({ tokenNumber: -1 }),
+    ]);
 
     const currentToken = lastDone ? lastDone.tokenNumber : 0;
+    const yourToken = lastBooked ? lastBooked.tokenNumber + 1 : 1;
 
-    // ✅ Next token = highest issued token + 1
-    const lastBooked = await Appointment.findOne({
-      doctorId,
-      date,
-      slot,
-      status: { $ne: "cancelled" }
-    }).sort({ tokenNumber: -1 });
+    const parseSlotTime = (str) => {
+      const s = str.trim();
+      const isPM = /pm/i.test(s);
+      const isAM = /am/i.test(s);
+      const [h, m] = s.replace(/[a-zA-Z\s]/g, "").split(":").map(Number);
+      let hour = h;
+      if (isPM && hour !== 12) hour += 12;
+      if (isAM && hour === 12) hour = 0;
+      return hour * 60 + (m || 0);
+    };
 
-    const yourToken = lastBooked
-      ? lastBooked.tokenNumber + 1
-      : 1;
+    const [startPart, endPart] = slot.split(" - ").map((s) => s.trim());
+    const slotStart = parseSlotTime(startPart);
+    const slotEnd = parseSlotTime(endPart);
+    const minsPerPatient = Math.floor((slotEnd - slotStart) / (doctor.maxPatientsPerSlot || 1));
 
-    // ✅ Wait time
-    const waitMinutes = Math.max(
-      0,
-      (yourToken - currentToken - 1) * 5
-    );
+    const waitMinutes = Math.max(0, (yourToken - currentToken - 1) * minsPerPatient);
 
-    // ✅ Slot start time
-    const startTime = slot.split("-")[0].trim();
-
-    const [hour, min] = startTime.split(":");
-
-    const estimate = new Date(`${date}T${hour}:${min}:00`);
-
-    estimate.setMinutes(
-      estimate.getMinutes() + waitMinutes
-    );
+    const totalMins = slotStart + (yourToken - 1) * minsPerPatient;
+    const estHour = Math.floor(totalMins / 60) % 24;
+    const estMin = totalMins % 60;
+    const period = estHour >= 12 ? "PM" : "AM";
+    const displayHour = estHour % 12 || 12;
+    const estimatedTime = `${String(displayHour).padStart(2, "0")}:${String(estMin).padStart(2, "0")} ${period}`;
 
     res.json({
       success: true,
       currentToken,
       yourToken,
       estimatedWaitMinutes: waitMinutes,
-      estimatedTime: estimate.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit"
-      }),
-      freeFollowupDays:
-        doctor.clinic?.freeFollowupDays || 0
+      estimatedTime,
+      freeFollowupDays: doctor.clinic?.freeFollowupDays || 0,
     });
 
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message
-    });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 

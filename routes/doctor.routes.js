@@ -2,6 +2,7 @@ import express from "express";
 const router = express.Router();
 
 import { protect } from "../middleware/authMiddleware.js";
+import { getAppointmentPreview } from "../controllers/patient.controller.js";
 import { getTodayQueue,
     markDone,
     markPaid,
@@ -78,5 +79,6 @@ router.post("/clinic/add-doctor", protect, addDoctorToClinic);
 router.delete("/clinic/remove-doctor/:doctorId", protect, removeDoctorFromClinic);
 
 router.get("/appointment-stats", protect, getAppointmentStats);
+router.get("/appointment-preview/:doctorId", protect, getAppointmentPreview);
 
 export default router;
