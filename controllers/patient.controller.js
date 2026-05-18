@@ -339,9 +339,16 @@ export const getDoctorByPhone = async (req, res) => {
       });
     }
 
+    const doctorObj = doctor.toObject();
     res.status(200).json({
       success: true,
-      doctor,
+      doctor: {
+        ...doctorObj,
+        clinic: {
+          ...doctorObj.clinic,
+          clinicId: doctorObj.clinicId ?? null,
+        },
+      },
     });
   } catch (error) {
     res.status(500).json({
