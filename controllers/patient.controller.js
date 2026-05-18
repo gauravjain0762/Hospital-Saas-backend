@@ -1381,17 +1381,25 @@ export const getClinicById = async (req, res) => {
       { clinicId, role: "doctor", status: "approved" },
     ).select("-password -otp -otpExpiry -employees.otp -employees.otpExpiry -documents -bankDetails");
 
+    const firstDoc = doctors[0];
+
     res.status(200).json({
       success: true,
       clinic: {
-        id: clinic._id,
-        clinicName: clinic.clinicName,
-        address: clinic.address,
-        city: clinic.city,
-        state: clinic.state,
-        pincode: clinic.pincode,
-        phone: clinic.phone,
-        photos: clinic.photos,
+        clinicName: clinic.clinicName || "",
+        about: firstDoc?.clinic?.about || "",
+        address: clinic.address || "",
+        city: clinic.city || "",
+        state: clinic.state || "",
+        pincode: clinic.pincode || "",
+        country: clinic.country || "",
+        consultationFee: firstDoc?.clinic?.consultationFee ?? 0,
+        freeFollowupDays: firstDoc?.clinic?.freeFollowupDays ?? 0,
+        rating: firstDoc?.clinic?.rating ?? 0,
+        latitude: firstDoc?.clinic?.latitude ?? null,
+        longitude: firstDoc?.clinic?.longitude ?? null,
+        photos: clinic.photos || [],
+        googleBusinessLink: firstDoc?.clinic?.googleBusinessLink || "",
       },
       doctors: doctors.map((d) => ({
         id: d._id,
@@ -1408,21 +1416,7 @@ export const getClinicById = async (req, res) => {
         activeStatus: d.activeStatus,
         availability: d.availability,
         maxPatientsPerSlot: d.maxPatientsPerSlot ?? null,
-        clinic: {
-          clinicName: d.clinic?.clinicName || "",
-          about: d.clinic?.about || "",
-          address: d.clinic?.address || "",
-          city: d.clinic?.city || "",
-          state: d.clinic?.state || "",
-          pincode: d.clinic?.pincode || "",
-          consultationFee: d.clinic?.consultationFee ?? 0,
-          freeFollowupDays: d.clinic?.freeFollowupDays ?? 0,
-          rating: d.clinic?.rating ?? 0,
-          latitude: d.clinic?.latitude ?? null,
-          longitude: d.clinic?.longitude ?? null,
-          photos: d.clinic?.photos || [],
-          googleBusinessLink: d.clinic?.googleBusinessLink || "",
-        },
+        consultationFee: d.clinic?.consultationFee ?? 0,
         paymentDetails: {
           paymentMethod: d.paymentDetails?.paymentMethod,
           upiId: d.paymentDetails?.upiId,
