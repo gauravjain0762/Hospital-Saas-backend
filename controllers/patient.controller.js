@@ -7,7 +7,7 @@ import PatientReport from "../models/patientReport.model.js";
 import Review from "../models/review.model.js";
 import Clinic from "../models/clinic.model.js";
 import Notification from "../models/notification.model.js";
-import { checkAndDeductToken } from "../utils/tokenGuard.js";
+import { checkAndDeductToken, refundToken } from "../utils/tokenGuard.js";
 
 //OTP
 const OTP = "123456"; // For testing purposes, use a fixed OTP
@@ -806,6 +806,15 @@ export const cancelAppointment = async (req, res) => {
     appointment.status = "cancelled";
     await appointment.save();
 
+    const refund = await refundToken(appointment.doctorId);
+    if (refund?.walletBalance !== undefined) {
+      const io = req.app.get("io");
+      io.to(`doctor_${appointment.doctorId}`).emit("walletUpdated", {
+        walletBalance: refund.walletBalance,
+        tokensAvailable: refund.tokensAvailable,
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: "Appointment cancelled successfully",
@@ -1502,6 +1511,62 @@ export const getVisitTimeEstimate = async (req, res) => {
       estimatedTime,
       minutesPerPatient,
       waitingAhead,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getMySessions = async (req, res) => {
+  try {
+    const patientId = req.patient.id;
+
+    const appointments = await Appointment.find({ patientId })
+      .populate({
+        path: "doctorId",
+        select: "name profilePhoto services clinic clinicId experience maxPatientsPerSlot",
+      })
+      .sort({ date: -1 });
+
+    const UPCOMING_STATUSES = ["waiting", "in_progress"];
+    const PAST_STATUSES = ["completed", "cancelled", "no_show", "skipped"];
+
+    const formatSession = (item) => ({
+      id: item._id,
+      date: item.date,
+      slot: item.slot,
+      tokenNumber: item.tokenNumber,
+      status: item.status,
+      paymentStatus: item.paymentStatus,
+      consultationFee: item.consultationFee,
+      problem: item.problem || null,
+      doctor: {
+        id: item.doctorId?._id || "",
+        name: item.doctorId?.name || "",
+        profilePhoto: item.doctorId?.profilePhoto || "",
+        specialization: item.doctorId?.services?.[0] || "General",
+      },
+      clinic: {
+        clinicId: item.doctorId?.clinicId ?? null,
+        clinicName: item.doctorId?.clinic?.clinicName || "",
+        address: item.doctorId?.clinic?.address || "",
+        city: item.doctorId?.clinic?.city || "",
+        googleBusinessLink: item.doctorId?.clinic?.googleBusinessLink || "",
+      },
+    });
+
+    const upcoming = appointments
+      .filter((a) => UPCOMING_STATUSES.includes(a.status))
+      .map(formatSession);
+
+    const past = appointments
+      .filter((a) => PAST_STATUSES.includes(a.status))
+      .map(formatSession);
+
+    res.status(200).json({
+      success: true,
+      upcoming,
+      past,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

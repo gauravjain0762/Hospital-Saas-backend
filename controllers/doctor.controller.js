@@ -11,7 +11,7 @@ import Notification from "../models/notification.model.js";
 import admin from "../utils/firebase.js";
 import xlsx from "xlsx";
 import jwt from "jsonwebtoken";
-import { checkAndDeductToken } from "../utils/tokenGuard.js";
+import { checkAndDeductToken, refundToken } from "../utils/tokenGuard.js";
 
 export const getTodayQueue = async (req, res) => {
   try {
@@ -1635,5 +1635,61 @@ export const removeDoctorFromClinic = async (req, res) => {
     res.status(200).json({ success: true, message: `${target.name} removed from clinic` });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const cancelAppointment = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+    const appointmentId = req.params.id;
+
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
+      doctorId,
+    });
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found",
+      });
+    }
+
+    if (appointment.status === "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Completed appointment cannot be cancelled",
+      });
+    }
+
+    if (appointment.status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Appointment already cancelled",
+      });
+    }
+
+    appointment.status = "cancelled";
+    await appointment.save();
+
+    const refund = await refundToken(doctorId);
+    if (refund?.walletBalance !== undefined) {
+      const io = req.app.get("io");
+      io.to(`doctor_${doctorId}`).emit("walletUpdated", {
+        walletBalance: refund.walletBalance,
+        tokensAvailable: refund.tokensAvailable,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Appointment cancelled successfully",
+      appointment,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };

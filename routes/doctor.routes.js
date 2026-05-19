@@ -39,6 +39,7 @@ import { getTodayQueue,
     addDoctorToClinic,
     removeDoctorFromClinic,
     getAppointmentStats,
+    cancelAppointment,
  } from "../controllers/doctor.controller.js";
 
 router.get("/profile", protect, getDoctorProfile);
@@ -80,5 +81,6 @@ router.delete("/clinic/remove-doctor/:doctorId", protect, removeDoctorFromClinic
 
 router.get("/appointment-stats", protect, getAppointmentStats);
 router.get("/appointment-preview/:doctorId", protect, getAppointmentPreview);
+router.patch("/cancel-appointment/:id", protect, cancelAppointment);
 
 export default router;

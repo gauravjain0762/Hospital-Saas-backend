@@ -1,5 +1,32 @@
 import User from "../models/User.js";
 
+export const refundToken = async (doctorId) => {
+  const doctor = await User.findById(doctorId).select("tokenPlan wallet");
+  if (!doctor) return;
+
+  const planType = doctor.tokenPlan?.planType;
+
+  if (planType === "pay_per_token") {
+    const ppt = doctor.tokenPlan.pricePerToken;
+    if (!ppt) return;
+    const updated = await User.findByIdAndUpdate(
+      doctorId,
+      { $inc: { "wallet.balance": ppt, "tokenPlan.usedTokens": -1 } },
+      { new: true, select: "wallet tokenPlan" }
+    );
+    return {
+      walletBalance: updated.wallet.balance,
+      tokensAvailable: Math.floor(updated.wallet.balance / ppt),
+    };
+  }
+
+  if (planType === "monthly_unlimited" || planType === "free") {
+    await User.findByIdAndUpdate(doctorId, {
+      $inc: { "tokenPlan.usedTokens": -1 },
+    });
+  }
+};
+
 export const checkAndDeductToken = async (doctorId) => {
   const now = new Date();
 
