@@ -930,18 +930,33 @@ export const getAppointmentDetails = async (req, res) => {
 
     let estimatedTime = null;
     if (["waiting", "in_progress", "completed"].includes(appointment.status) && appointment.slot) {
+      const parseSlotTimeFmt = (str) => {
+        const s = str.trim();
+        const isPM = /pm/i.test(s);
+        const isAM = /am/i.test(s);
+        const [h, m] = s.replace(/[a-zA-Z\s]/g, "").split(":").map(Number);
+        let hour = h;
+        if (isPM && hour !== 12) hour += 12;
+        if (isAM && hour === 12) hour = 0;
+        return hour * 60 + (m || 0);
+      };
+
       const [startPart, endPart] = appointment.slot.split(" - ").map((s) => s.trim());
-      const [startHour, startMin] = startPart.split(":").map(Number);
-      const [endHour, endMin] = endPart.split(":").map(Number);
-      const slotDuration = (endHour * 60 + endMin) - (startHour * 60 + startMin);
+      const slotStartMins = parseSlotTimeFmt(startPart);
+      const slotEndMins = parseSlotTimeFmt(endPart);
+      const slotDuration = slotEndMins - slotStartMins;
       const maxPts = doctor?.maxPatientsPerSlot || 1;
       const minPerPatient = Math.floor(slotDuration / maxPts);
 
-      if (appointment.status === "completed") {
-        const totalMin = (startHour * 60 + startMin) + appointment.tokenNumber * minPerPatient;
+      const calcTime = (totalMin) => {
         const estDate = new Date();
         estDate.setHours(Math.floor(totalMin / 60) % 24, totalMin % 60, 0, 0);
-        estimatedTime = estDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+        return estDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+      };
+
+      if (appointment.status === "completed") {
+        const totalMin = slotStartMins + (appointment.tokenNumber - 1) * minPerPatient;
+        estimatedTime = calcTime(totalMin);
       } else {
         const waitingAhead = await Appointment.countDocuments({
           doctorId: doctor?._id,
@@ -954,10 +969,8 @@ export const getAppointmentDetails = async (req, res) => {
         if (waitingAhead === 0) {
           estimatedTime = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
         } else {
-          const totalMin = (startHour * 60 + startMin) + appointment.tokenNumber * minPerPatient;
-          const estDate = new Date();
-          estDate.setHours(Math.floor(totalMin / 60) % 24, totalMin % 60, 0, 0);
-          estimatedTime = estDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+          const totalMin = slotStartMins + (appointment.tokenNumber - 1) * minPerPatient;
+          estimatedTime = calcTime(totalMin);
         }
       }
     }
