@@ -954,25 +954,8 @@ export const getAppointmentDetails = async (req, res) => {
         return estDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
       };
 
-      if (appointment.status === "completed") {
-        const totalMin = slotStartMins + (appointment.tokenNumber - 1) * minPerPatient;
-        estimatedTime = calcTime(totalMin);
-      } else {
-        const waitingAhead = await Appointment.countDocuments({
-          doctorId: doctor?._id,
-          date: appointment.date,
-          slot: appointment.slot,
-          status: "waiting",
-          tokenNumber: { $lt: appointment.tokenNumber },
-        });
-
-        if (waitingAhead === 0) {
-          estimatedTime = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
-        } else {
-          const totalMin = slotStartMins + (appointment.tokenNumber - 1) * minPerPatient;
-          estimatedTime = calcTime(totalMin);
-        }
-      }
+      const totalMin = slotStartMins + (appointment.tokenNumber - 1) * minPerPatient;
+      estimatedTime = calcTime(totalMin);
     }
 
     res.status(200).json({
