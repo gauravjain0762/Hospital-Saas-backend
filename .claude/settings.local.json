@@ -6,7 +6,8 @@
       "Bash(grep -r \"app.get.*io\\\\|req.app.get.*io\" /f/company/hospital-saas --include=\"*.js\" ! -path \"*/node_modules/*\")",
       "Bash(npm install *)",
       "WebFetch(domain:hospital-saas-backend.onrender.com)",
-      "Bash(git restore *)"
+      "Bash(git restore *)",
+      "Bash(git checkout *)"
     ]
   },
   "enableAllProjectMcpServers": true,

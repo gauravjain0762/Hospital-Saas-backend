@@ -709,10 +709,10 @@ export const getMyAppointments = async (req, res) => {
     const result = [];
 
     for (const item of appointments) {
-      const [queue, doctorDoc] = await Promise.all([
-        Queue.findOne({ doctorId: item.doctorId?._id, date: item.date }),
-        User.findById(item.doctorId?._id).select("maxPatientsPerSlot"),
-      ]);
+      const queue = await Queue.findOne({
+        doctorId: item.doctorId?._id,
+        date: item.date,
+      });
 
       const currentToken = queue?.currentToken || 0;
 
@@ -722,7 +722,7 @@ export const getMyAppointments = async (req, res) => {
         const slotStart = parseSlotTime(startPart);
         const slotEnd = parseSlotTime(endPart);
         const slotDuration = slotEnd - slotStart;
-        const maxPts = doctorDoc?.maxPatientsPerSlot || 1;
+        const maxPts = item.doctorId?.maxPatientsPerSlot || 1;
         const minPerPatient = Math.floor(slotDuration / maxPts);
         const totalMin = slotStart + (item.tokenNumber - 1) * minPerPatient;
         estimatedTime = formatTime(totalMin);
@@ -928,11 +928,9 @@ export const getAppointmentDetails = async (req, res) => {
     const displayId =
       "APT" + String(appointment._id).slice(-4).toUpperCase();
 
-    const doctorDoc = await User.findById(doctor?._id).select("maxPatientsPerSlot");
-
     let estimatedTime = null;
     if (["waiting", "in_progress", "completed"].includes(appointment.status) && appointment.slot) {
-      const parseSlotTime = (str) => {
+      const parseSlotTimeFmt = (str) => {
         const s = str.trim();
         const isPM = /pm/i.test(s);
         const isAM = /am/i.test(s);
@@ -944,17 +942,22 @@ export const getAppointmentDetails = async (req, res) => {
       };
 
       const [startPart, endPart] = appointment.slot.split(" - ").map((s) => s.trim());
-      const slotStart = parseSlotTime(startPart);
-      const slotEnd = parseSlotTime(endPart);
-      const slotDuration = slotEnd - slotStart;
-      const maxPts = doctorDoc?.maxPatientsPerSlot || 1;
+      const slotStartMins = parseSlotTimeFmt(startPart);
+      const slotEndMins = parseSlotTimeFmt(endPart);
+      const slotDuration = slotEndMins - slotStartMins;
+      const maxPts = doctor?.maxPatientsPerSlot || 1;
       const minPerPatient = Math.floor(slotDuration / maxPts);
-      const totalMin = slotStart + (appointment.tokenNumber - 1) * minPerPatient;
-      const h = Math.floor(totalMin / 60) % 24;
-      const m = totalMin % 60;
-      const period = h >= 12 ? "PM" : "AM";
-      const displayH = h % 12 || 12;
-      estimatedTime = `${String(displayH).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
+
+      const calcTime = (totalMin) => {
+        const h = Math.floor(totalMin / 60) % 24;
+        const m = totalMin % 60;
+        const period = h >= 12 ? "PM" : "AM";
+        const displayH = h % 12 || 12;
+        return `${String(displayH).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
+      };
+
+      const totalMin = slotStartMins + (appointment.tokenNumber - 1) * minPerPatient;
+      estimatedTime = calcTime(totalMin);
     }
 
     res.status(200).json({
