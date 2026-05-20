@@ -949,9 +949,11 @@ export const getAppointmentDetails = async (req, res) => {
       const minPerPatient = Math.floor(slotDuration / maxPts);
 
       const calcTime = (totalMin) => {
-        const estDate = new Date();
-        estDate.setHours(Math.floor(totalMin / 60) % 24, totalMin % 60, 0, 0);
-        return estDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+        const h = Math.floor(totalMin / 60) % 24;
+        const m = totalMin % 60;
+        const period = h >= 12 ? "PM" : "AM";
+        const displayH = h % 12 || 12;
+        return `${String(displayH).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
       };
 
       const totalMin = slotStartMins + (appointment.tokenNumber - 1) * minPerPatient;
