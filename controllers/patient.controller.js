@@ -1260,15 +1260,24 @@ export const submitDoctorReview = async (req, res) => {
     const patient = await Patient.findById(patientId);
     const patientName = patient?.fullName || "Anonymous";
 
+    // auto-resolve appointmentId if not provided by client
+    let resolvedAppointmentId = appointmentId || null;
+    if (!resolvedAppointmentId) {
+      const lastAppt = await Appointment.findOne({ doctorId, patientId, status: "completed" })
+        .sort({ completedAt: -1 })
+        .select("_id");
+      resolvedAppointmentId = lastAppt?._id || null;
+    }
+
     const existing = await Review.findOne({ doctorId, patientId });
     if (existing) {
       existing.rating = rating;
       existing.review = review || "";
       existing.patientName = patientName;
-      if (appointmentId) existing.appointmentId = appointmentId;
+      existing.appointmentId = resolvedAppointmentId;
       await existing.save();
     } else {
-      await Review.create({ doctorId, patientId, patientName, rating, review: review || "", appointmentId: appointmentId || null });
+      await Review.create({ doctorId, patientId, patientName, rating, review: review || "", appointmentId: resolvedAppointmentId });
     }
 
     // recalculate doctor's average rating
