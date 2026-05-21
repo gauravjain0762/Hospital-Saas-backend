@@ -706,6 +706,11 @@ export const getMyAppointments = async (req, res) => {
       return `${String(displayH).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
     };
 
+    // Batch-check which doctors this patient has already rated
+    const doctorIds = appointments.map((a) => a.doctorId?._id).filter(Boolean);
+    const existingReviews = await Review.find({ patientId, doctorId: { $in: doctorIds } }).select("doctorId");
+    const ratedDoctorIds = new Set(existingReviews.map((r) => r.doctorId.toString()));
+
     const result = [];
 
     for (const item of appointments) {
@@ -751,6 +756,7 @@ export const getMyAppointments = async (req, res) => {
           city: item.doctorId?.clinic?.city || "",
           googleBusinessLink: item.doctorId?.clinic?.googleBusinessLink || "",
         },
+        hasRated: ratedDoctorIds.has(item.doctorId?._id?.toString()),
       });
     }
 
