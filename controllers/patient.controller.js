@@ -995,7 +995,7 @@ export const getAppointmentDetails = async (req, res) => {
 
         estimatedTime,
         reminderMessage:
-          "Please arrive 10 minutes before your appointment time",
+          "Please arrive 5 minutes before your appointment time",
       },
     });
 
