@@ -211,6 +211,13 @@ export const registerStep1 = async (req, res) => {
       });
     }
 
+    if (user.status === "approved") {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number already exists",
+      });
+    }
+
      //  Check duplicate email (other users only)
     const existingEmail = await User.findOne({
       email,
