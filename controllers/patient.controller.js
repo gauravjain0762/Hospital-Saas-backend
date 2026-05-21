@@ -1600,17 +1600,23 @@ export const checkFreeFollowup = async (req, res) => {
       return res.status(200).json({ success: true, freeFollowup: false });
     }
 
+    const referenceDate = req.query.date ? new Date(req.query.date) : new Date();
+    if (isNaN(referenceDate.getTime())) {
+      return res.status(400).json({ success: false, message: "Invalid date format. Use YYYY-MM-DD" });
+    }
+
     const lastCompleted = await Appointment.findOne({
       doctorId,
       patientId,
       status: "completed",
+      completedAt: { $lte: referenceDate },
     }).sort({ completedAt: -1 }).select("completedAt");
 
     if (!lastCompleted?.completedAt) {
       return res.status(200).json({ success: true, freeFollowup: false });
     }
 
-    const daysSinceLast = (Date.now() - new Date(lastCompleted.completedAt)) / (1000 * 60 * 60 * 24);
+    const daysSinceLast = (referenceDate - new Date(lastCompleted.completedAt)) / (1000 * 60 * 60 * 24);
     const freeFollowup = daysSinceLast <= freeFollowupDays;
 
     const expiresOn = new Date(new Date(lastCompleted.completedAt).getTime() + freeFollowupDays * 24 * 60 * 60 * 1000);
