@@ -124,7 +124,7 @@ rejections: {
 
     maxPatientsPerSlot: {
       type: Number,
-      default: null,
+      default: 12,
     },
 
     paymentDetails: {

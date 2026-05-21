@@ -487,20 +487,19 @@ export const bookAppointment = async (req, res) => {
     }
 
     // Enforce max patients per slot
-    if (doctor.maxPatientsPerSlot) {
-      const slotBookings = await Appointment.countDocuments({
-        doctorId,
-        date,
-        slot,
-        status: { $ne: "cancelled" },
-      });
+    const maxPatientsPerSlot = doctor.maxPatientsPerSlot || 12;
+    const slotBookings = await Appointment.countDocuments({
+      doctorId,
+      date,
+      slot,
+      status: { $ne: "cancelled" },
+    });
 
-      if (slotBookings >= doctor.maxPatientsPerSlot) {
-        return res.status(400).json({
-          success: false,
-          message: "This slot is fully booked. Please choose another slot.",
-        });
-      }
+    if (slotBookings >= maxPatientsPerSlot) {
+      return res.status(400).json({
+        success: false,
+        message: "This slot is fully booked. Please choose another slot.",
+      });
     }
 
     // One booking per day
@@ -580,6 +579,8 @@ export const bookAppointment = async (req, res) => {
     const unique = Math.random().toString(36).substring(2, 4).toUpperCase();
     const appointmentId = `${docPrefix}${patPrefix}${mobPrefix}${unique}`;
 
+    const slotTokenNumber = slotBookings + 1;
+
     const appointment = await Appointment.create({
       appointmentId,
       doctorId,
@@ -587,6 +588,7 @@ export const bookAppointment = async (req, res) => {
       date,
       slot,
       tokenNumber,
+      slotTokenNumber,
       fullName,
       email,
       phone,
@@ -620,14 +622,10 @@ export const bookAppointment = async (req, res) => {
       return hour * 60 + (m || 0);
     };
 
-    const [slotStartPart, slotEndPart] = slot.split(" - ").map((s) => s.trim());
+    const [slotStartPart] = slot.split(" - ").map((s) => s.trim());
     const slotStartMins = parseSlotTime(slotStartPart);
-    const slotEndMins = parseSlotTime(slotEndPart);
-    const slotDuration = slotEndMins - slotStartMins;
-    const maxPatients = doctor.maxPatientsPerSlot || 1;
-    const minsPerPatient = Math.floor(slotDuration / maxPatients);
 
-    const totalMins = slotStartMins + (tokenNumber - 1) * minsPerPatient;
+    const totalMins = slotStartMins + (slotTokenNumber - 1) * 5;
     const estHour = Math.floor(totalMins / 60) % 24;
     const estMin = totalMins % 60;
     const period = estHour >= 12 ? "PM" : "AM";
@@ -723,13 +721,10 @@ export const getMyAppointments = async (req, res) => {
 
       let estimatedTime = null;
       if (["waiting", "in_progress", "completed"].includes(item.status) && item.slot) {
-        const [startPart, endPart] = item.slot.split(" - ").map((s) => s.trim());
+        const [startPart] = item.slot.split(" - ").map((s) => s.trim());
         const slotStart = parseSlotTime(startPart);
-        const slotEnd = parseSlotTime(endPart);
-        const slotDuration = slotEnd - slotStart;
-        const maxPts = item.doctorId?.maxPatientsPerSlot || 1;
-        const minPerPatient = Math.floor(slotDuration / maxPts);
-        const totalMin = slotStart + (item.tokenNumber - 1) * minPerPatient;
+        const slotPos = item.slotTokenNumber ?? item.tokenNumber;
+        const totalMin = slotStart + (slotPos - 1) * 5;
         estimatedTime = formatTime(totalMin);
       }
 
@@ -947,22 +942,19 @@ export const getAppointmentDetails = async (req, res) => {
         return hour * 60 + (m || 0);
       };
 
-      const [startPart, endPart] = appointment.slot.split(" - ").map((s) => s.trim());
+      const [startPart] = appointment.slot.split(" - ").map((s) => s.trim());
       const slotStartMins = parseSlotTimeFmt(startPart);
-      const slotEndMins = parseSlotTimeFmt(endPart);
-      const slotDuration = slotEndMins - slotStartMins;
-      const maxPts = doctor?.maxPatientsPerSlot || 1;
-      const minPerPatient = Math.floor(slotDuration / maxPts);
+      const slotPos = appointment.slotTokenNumber ?? appointment.tokenNumber;
+      const totalMin = slotStartMins + (slotPos - 1) * 5;
 
-      const calcTime = (totalMin) => {
-        const h = Math.floor(totalMin / 60) % 24;
-        const m = totalMin % 60;
+      const calcTime = (min) => {
+        const h = Math.floor(min / 60) % 24;
+        const m = min % 60;
         const period = h >= 12 ? "PM" : "AM";
         const displayH = h % 12 || 12;
         return `${String(displayH).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
       };
 
-      const totalMin = slotStartMins + (appointment.tokenNumber - 1) * minPerPatient;
       estimatedTime = calcTime(totalMin);
     }
 
@@ -1101,14 +1093,12 @@ export const getAppointmentPreview = async (req, res) => {
       return hour * 60 + (m || 0);
     };
 
-    const [startPart, endPart] = slot.split(" - ").map((s) => s.trim());
+    const [startPart] = slot.split(" - ").map((s) => s.trim());
     const slotStart = parseSlotTime(startPart);
-    const slotEnd = parseSlotTime(endPart);
-    const minsPerPatient = Math.floor((slotEnd - slotStart) / (doctor.maxPatientsPerSlot || 1));
 
-    const waitMinutes = Math.max(0, (yourToken - currentToken - 1) * minsPerPatient);
+    const waitMinutes = Math.max(0, (yourToken - currentToken - 1) * 5);
 
-    const totalMins = slotStart + (yourToken - 1) * minsPerPatient;
+    const totalMins = slotStart + (yourToken - 1) * 5;
     const estHour = Math.floor(totalMins / 60) % 24;
     const estMin = totalMins % 60;
     const period = estHour >= 12 ? "PM" : "AM";
@@ -1466,12 +1456,9 @@ export const getVisitTimeEstimate = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid tokenNumber" });
     }
 
-    const doctor = await User.findById(doctorId).select("maxPatientsPerSlot");
-    if (!doctor) {
+    if (!await User.exists({ _id: doctorId })) {
       return res.status(404).json({ success: false, message: "Doctor not found" });
     }
-
-    const maxPatientsPerSlot = doctor.maxPatientsPerSlot || 1;
 
     // supports both "HH:MM" (24-hr) and "H:MM AM/PM" (12-hr) formats
     const parseTime = (str) => {
@@ -1485,14 +1472,9 @@ export const getVisitTimeEstimate = async (req, res) => {
       return hour * 60 + (m || 0);
     };
 
-    const [startPart, endPart] = slot.split(" - ").map((s) => s.trim());
+    const [startPart] = slot.split(" - ").map((s) => s.trim());
     const slotStartMinutes = parseTime(startPart);
-    const slotEndMinutes = parseTime(endPart);
-    const slotDurationMinutes = slotEndMinutes - slotStartMinutes;
 
-    const minutesPerPatient = Math.floor(slotDurationMinutes / maxPatientsPerSlot);
-
-    // patients still waiting ahead of this token in the same slot
     const waitingAhead = await Appointment.countDocuments({
       doctorId,
       date,
@@ -1501,8 +1483,7 @@ export const getVisitTimeEstimate = async (req, res) => {
       tokenNumber: { $lt: token },
     });
 
-    // token 1 starts at slot start, token 2 at slotStart + 1*minutesPerPatient, etc.
-    const totalMinutes = slotStartMinutes + (token - 1) * minutesPerPatient;
+    const totalMinutes = slotStartMinutes + (token - 1) * 5;
     const estHour = Math.floor(totalMinutes / 60) % 24;
     const estMin = totalMinutes % 60;
     const period = estHour >= 12 ? "PM" : "AM";
@@ -1513,7 +1494,7 @@ export const getVisitTimeEstimate = async (req, res) => {
       success: true,
       tokenNumber: token,
       estimatedTime,
-      minutesPerPatient,
+      minutesPerPatient: 5,
       waitingAhead,
     });
   } catch (error) {

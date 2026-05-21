@@ -891,6 +891,18 @@ export const createWalkInAppointment = async (req, res) => {
       patient = await Patient.create({ mobile: phone, fullName, email: email || "" });
     }
 
+    // enforce slot capacity
+    const maxPatientsPerSlot = doctor.maxPatientsPerSlot || 12;
+    const existingSlotCount = await Appointment.countDocuments({
+      doctorId,
+      date,
+      slot,
+      status: { $ne: "cancelled" },
+    });
+    if (existingSlotCount >= maxPatientsPerSlot) {
+      return res.status(400).json({ success: false, message: "This slot is fully booked. Please choose another slot." });
+    }
+
     // deduct token before creating appointment
     const tokenResult = await checkAndDeductToken(doctorId);
     if (!tokenResult.allowed) {
@@ -913,6 +925,14 @@ export const createWalkInAppointment = async (req, res) => {
     const tokenNumber = queue.lastIssuedToken + 1;
     queue.lastIssuedToken = tokenNumber;
     await queue.save();
+
+    const slotBookings = await Appointment.countDocuments({
+      doctorId,
+      date,
+      slot,
+      status: { $ne: "cancelled" },
+    });
+    const slotTokenNumber = slotBookings + 1;
 
     let consultationFee = doctor.clinic?.consultationFee || 0;
     let isFollowup = false;
@@ -954,6 +974,7 @@ export const createWalkInAppointment = async (req, res) => {
       date,
       slot,
       tokenNumber,
+      slotTokenNumber,
       fullName,
       email: email || "",
       phone,
@@ -970,10 +991,32 @@ export const createWalkInAppointment = async (req, res) => {
     const room = `doctor_${doctorId}`;
     io.to(room).emit("dashboardUpdated", { doctorId, lastIssuedToken: queue.lastIssuedToken });
 
+    const parseSlotTime = (str) => {
+      const s = str.trim();
+      const isPM = /pm/i.test(s);
+      const isAM = /am/i.test(s);
+      const [h, m] = s.replace(/[a-zA-Z\s]/g, "").split(":").map(Number);
+      let hour = h;
+      if (isPM && hour !== 12) hour += 12;
+      if (isAM && hour === 12) hour = 0;
+      return hour * 60 + (m || 0);
+    };
+
+    const [slotStartPart] = slot.split(" - ").map((s) => s.trim());
+    const slotStartMins = parseSlotTime(slotStartPart);
+    const totalMins = slotStartMins + (slotTokenNumber - 1) * 5;
+    const estHour = Math.floor(totalMins / 60) % 24;
+    const estMin = totalMins % 60;
+    const period = estHour >= 12 ? "PM" : "AM";
+    const displayHour = estHour % 12 || 12;
+    const expectedTime = `${String(displayHour).padStart(2, "0")}:${String(estMin).padStart(2, "0")} ${period}`;
+
     res.status(201).json({
       success: true,
       message: "Walk-in appointment created",
       tokenNumber,
+      slotTokenNumber,
+      expectedTime,
       appointmentId,
       consultationFee,
       paymentStatus,
