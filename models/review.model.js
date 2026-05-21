@@ -36,7 +36,10 @@ const reviewSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// one review per patient per doctor
-reviewSchema.index({ doctorId: 1, patientId: 1 }, { unique: true });
+// one review per patient per appointment
+reviewSchema.index(
+  { appointmentId: 1, patientId: 1 },
+  { unique: true, partialFilterExpression: { appointmentId: { $type: "objectId" } } }
+);
 
 export default mongoose.model("Review", reviewSchema);

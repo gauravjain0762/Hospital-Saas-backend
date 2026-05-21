@@ -13,6 +13,7 @@ import doctorRoutes from "./routes/doctor.routes.js";
 import User from "./models/User.js";
 import Patient from "./models/patient.model.js";
 import Appointment from "./models/appointment.model.js";
+import Review from "./models/review.model.js";
 import analyticsRoutes from "./routes/Analytics.routes.js";
 import { checkAppVersion, getLegalContent } from "./controllers/adminController.js";
 
@@ -200,6 +201,7 @@ const startServer = async () => {
     });
 
     await User.syncIndexes();
+    await Review.syncIndexes();
 
     console.log("MongoDB Connected");
 
