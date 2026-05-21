@@ -1557,9 +1557,17 @@ export const getMySessions = async (req, res) => {
       .filter((a) => UPCOMING_STATUSES.includes(a.status))
       .map(formatSession);
 
-    const past = appointments
-      .filter((a) => PAST_STATUSES.includes(a.status))
-      .map(formatSession);
+    // Deduplicate past by clinic — keep only the most recent visit per clinic
+    const pastDeduped = (() => {
+      const seen = new Map();
+      for (const a of appointments.filter((a) => PAST_STATUSES.includes(a.status))) {
+        const key = (a.doctorId?.clinicId ?? a.doctorId?._id)?.toString();
+        if (key && !seen.has(key)) seen.set(key, a);
+      }
+      return Array.from(seen.values());
+    })();
+
+    const past = pastDeduped.map(formatSession);
 
     res.status(200).json({
       success: true,
