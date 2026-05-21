@@ -1604,6 +1604,7 @@ export const checkFreeFollowup = async (req, res) => {
     if (isNaN(referenceDate.getTime())) {
       return res.status(400).json({ success: false, message: "Invalid date format. Use YYYY-MM-DD" });
     }
+    if (req.query.date) referenceDate.setHours(23, 59, 59, 999);
 
     const lastCompleted = await Appointment.findOne({
       doctorId,
