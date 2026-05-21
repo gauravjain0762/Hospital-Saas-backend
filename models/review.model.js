@@ -12,6 +12,11 @@ const reviewSchema = new mongoose.Schema(
       ref: "Patient",
       required: true,
     },
+    appointmentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Appointment",
+      default: null,
+    },
     patientName: {
       type: String,
       default: "Anonymous",

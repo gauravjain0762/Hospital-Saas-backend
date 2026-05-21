@@ -706,10 +706,10 @@ export const getMyAppointments = async (req, res) => {
       return `${String(displayH).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
     };
 
-    // Batch-check which doctors this patient has already rated
-    const doctorIds = appointments.map((a) => a.doctorId?._id).filter(Boolean);
-    const existingReviews = await Review.find({ patientId, doctorId: { $in: doctorIds } }).select("doctorId");
-    const ratedDoctorIds = new Set(existingReviews.map((r) => r.doctorId.toString()));
+    // Batch-check which appointments this patient has already rated
+    const appointmentIds = appointments.map((a) => a._id);
+    const existingReviews = await Review.find({ patientId, appointmentId: { $in: appointmentIds } }).select("appointmentId");
+    const ratedAppointmentIds = new Set(existingReviews.map((r) => r.appointmentId.toString()));
 
     const result = [];
 
@@ -756,7 +756,7 @@ export const getMyAppointments = async (req, res) => {
           city: item.doctorId?.clinic?.city || "",
           googleBusinessLink: item.doctorId?.clinic?.googleBusinessLink || "",
         },
-        hasRated: ratedDoctorIds.has(item.doctorId?._id?.toString()),
+        hasRated: ratedAppointmentIds.has(item._id.toString()),
       });
     }
 
@@ -1248,7 +1248,7 @@ export const submitDoctorReview = async (req, res) => {
   try {
     const patientId = req.patient.id;
     const doctorId = req.params.id;
-    const { rating, review } = req.body;
+    const { rating, review, appointmentId } = req.body;
 
     if (!rating || rating < 1 || rating > 5) {
       return res.status(400).json({ success: false, message: "Rating must be between 1 and 5" });
@@ -1265,9 +1265,10 @@ export const submitDoctorReview = async (req, res) => {
       existing.rating = rating;
       existing.review = review || "";
       existing.patientName = patientName;
+      if (appointmentId) existing.appointmentId = appointmentId;
       await existing.save();
     } else {
-      await Review.create({ doctorId, patientId, patientName, rating, review: review || "" });
+      await Review.create({ doctorId, patientId, patientName, rating, review: review || "", appointmentId: appointmentId || null });
     }
 
     // recalculate doctor's average rating
