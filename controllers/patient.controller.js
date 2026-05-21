@@ -1584,3 +1584,44 @@ export const getMySessions = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// GET /api/patient/doctors/:id/free-followup
+export const checkFreeFollowup = async (req, res) => {
+  try {
+    const patientId = req.patient.id;
+    const doctorId = req.params.id;
+
+    const doctor = await User.findOne({ _id: doctorId, role: "doctor", status: "approved" }).select("clinic.freeFollowupDays");
+    if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found" });
+
+    const freeFollowupDays = doctor.clinic?.freeFollowupDays || 0;
+
+    if (freeFollowupDays === 0) {
+      return res.status(200).json({ success: true, freeFollowup: false });
+    }
+
+    const lastCompleted = await Appointment.findOne({
+      doctorId,
+      patientId,
+      status: "completed",
+    }).sort({ completedAt: -1 }).select("completedAt");
+
+    if (!lastCompleted?.completedAt) {
+      return res.status(200).json({ success: true, freeFollowup: false });
+    }
+
+    const daysSinceLast = (Date.now() - new Date(lastCompleted.completedAt)) / (1000 * 60 * 60 * 24);
+    const freeFollowup = daysSinceLast <= freeFollowupDays;
+
+    const expiresOn = new Date(new Date(lastCompleted.completedAt).getTime() + freeFollowupDays * 24 * 60 * 60 * 1000);
+
+    return res.status(200).json({
+      success: true,
+      freeFollowup,
+      lastVisitDate: lastCompleted.completedAt,
+      expiresOn,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
