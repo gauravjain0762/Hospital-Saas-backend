@@ -298,6 +298,13 @@ export const markPaid = async (req, res) => {
     appointment.paymentStatus = "paid";
     await appointment.save();
 
+    const io = req.app.get("io");
+    if (io) {
+      const payload = { appointmentId: appointment._id, paymentStatus: "paid" };
+      io.to(`patient_${appointment.patientId}`).emit("appointmentPaid", payload);
+      io.to(`doctor_${doctorId}`).emit("appointmentPaid", payload);
+    }
+
     res.status(200).json({
       success: true,
       message: "Payment marked as paid",
