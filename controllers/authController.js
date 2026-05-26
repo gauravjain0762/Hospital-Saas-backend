@@ -166,13 +166,6 @@ export const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
-    if (user.activeStatus === "inactive" && user.status === "approved") {
-      return res.status(403).json({
-        success: false,
-        message: "Your account has been deactivated. Please contact support.",
-      });
-    }
-
     user.otpVerified = true;
     user.otp = null;
     await user.save();
