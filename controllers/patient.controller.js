@@ -1379,6 +1379,73 @@ export const getUnreadCount = async (req, res) => {
   }
 };
 
+// GET /api/patient/clinics?city=...&state=...
+export const getAllClinics = async (req, res) => {
+  try {
+    const { city, state } = req.query;
+
+    const clinicFilter = {};
+    if (city) clinicFilter.city = { $regex: city, $options: "i" };
+    if (state) clinicFilter.state = { $regex: state, $options: "i" };
+
+    const clinics = await Clinic.find(clinicFilter).sort({ createdAt: -1 });
+
+    const clinicIds = clinics.map((c) => c._id);
+
+    const doctors = await User.find({
+      clinicId: { $in: clinicIds },
+      role: "doctor",
+      status: "approved",
+    }).select("name profilePhoto services experience doctorAvailable activeStatus clinic clinicId qualifications");
+
+    const doctorsByClinic = {};
+    for (const d of doctors) {
+      const key = d.clinicId.toString();
+      if (!doctorsByClinic[key]) doctorsByClinic[key] = [];
+      doctorsByClinic[key].push(d);
+    }
+
+    const result = clinics.map((c) => {
+      const clinicDoctors = doctorsByClinic[c._id.toString()] || [];
+      const firstDoc = clinicDoctors[0];
+      return {
+        id: c._id,
+        clinicName: c.clinicName,
+        address: c.address,
+        city: c.city,
+        state: c.state,
+        pincode: c.pincode,
+        country: c.country,
+        phone: c.phone,
+        photos: c.photos,
+        consultationFee: firstDoc?.clinic?.consultationFee ?? 0,
+        rating: firstDoc?.clinic?.rating ?? 0,
+        latitude: firstDoc?.clinic?.latitude ?? null,
+        longitude: firstDoc?.clinic?.longitude ?? null,
+        googleBusinessLink: firstDoc?.clinic?.googleBusinessLink || "",
+        doctors: clinicDoctors.map((d) => ({
+          id: d._id,
+          name: d.name,
+          profilePhoto: d.profilePhoto || "",
+          services: d.services,
+          qualifications: d.qualifications,
+          experience: d.experience,
+          doctorAvailable: d.doctorAvailable,
+          activeStatus: d.activeStatus,
+        })),
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      total: result.length,
+      clinics: result,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // GET /api/patient/clinic/:clinicId  — scanned from QR code, no auth needed
 export const getClinicById = async (req, res) => {
   try {
