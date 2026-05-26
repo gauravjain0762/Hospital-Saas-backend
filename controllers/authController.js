@@ -42,6 +42,14 @@ if (existingUser.status === "pending" && !hasRejections && existingUser.registra
 
       // ✅ Account approved — block registration
       if (existingUser.status === "approved") {
+        if (existingUser.activeStatus === "inactive") {
+          return res.status(403).json({
+            success: false,
+            accountStatus: "inactive",
+            message: "Your account has been deactivated. Please contact support.",
+          });
+        }
+
         const fixedOtp = process.env.FIXED_OTP?.trim();
         const otp = fixedOtp || generateOtp();
 
