@@ -16,55 +16,53 @@ import { checkAndDeductToken, refundToken } from "../utils/tokenGuard.js";
 export const getTodayQueue = async (req, res) => {
   try {
     const doctorId = req.user._id;
-
     const today = req.query.date || new Date().toISOString().split("T")[0];
 
-    let queue = await Queue.findOne({
-      doctorId,
-      date: today,
-    });
+    const queue = await Queue.findOne({ doctorId, date: today });
 
-    if (!queue) {
-      queue = {
-        currentToken: 0,
-        lastIssuedToken: 0,
-      };
+    const { slot, status } = req.query;
+
+    const validStatuses = ["waiting", "completed", "cancelled", "in_progress"];
+    const resolvedStatus = validStatuses.includes(status) ? status : "waiting";
+
+    const appointmentQuery = { doctorId, date: today, status: resolvedStatus };
+    if (slot) appointmentQuery.slot = slot;
+
+    const appointments = await Appointment.find(appointmentQuery)
+      .populate("patientId", "fullName mobile profilePhoto")
+      .sort({ slotNumber: 1, slotTokenNumber: 1 });
+
+    // build per-slot summary
+    const slotQueues = queue?.slotQueues || [];
+    const slotSummary = slotQueues.map((sq) => ({
+      slot: sq.slot,
+      slotNumber: sq.slotNumber,
+      currentToken: sq.currentToken,
+      lastIssuedToken: sq.lastIssuedToken,
+    }));
+
+    // if filtering by slot, also return that slot's token counters
+    let currentToken = 0;
+    let lastIssuedToken = 0;
+    if (slot) {
+      const sq = slotQueues.find((s) => s.slot === slot);
+      currentToken = sq?.currentToken ?? 0;
+      lastIssuedToken = sq?.lastIssuedToken ?? 0;
     }
-
-  const { slot, status } = req.query;
-
-  const validStatuses = ["waiting", "completed", "cancelled", "in_progress"];
-  const resolvedStatus = validStatuses.includes(status) ? status : "waiting";
-
-  const appointmentQuery = {
-    doctorId,
-    date: today,
-    status: resolvedStatus,
-  };
-
-  if (slot) {
-    appointmentQuery.slot = slot;
-  }
-
-  const appointments = await Appointment.find(appointmentQuery)
-    .populate("patientId", "fullName mobile profilePhoto")
-    .sort({ tokenNumber: 1 });
 
     res.status(200).json({
       success: true,
       date: today,
       status: resolvedStatus,
-      currentToken: queue.currentToken,
-      lastIssuedToken: queue.lastIssuedToken,
+      slotQueues: slotSummary,
+      // slot-specific counters when slot filter is provided
+      ...(slot && { currentToken, lastIssuedToken }),
       count: appointments.length,
       appointments,
     });
 
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -72,92 +70,77 @@ export const nextToken = async (req, res) => {
   try {
     const doctorId = req.user._id;
     const today = new Date().toISOString().split("T")[0];
+    const { slot } = req.body;
 
-    const queue = await Queue.findOne({
-      doctorId,
-      date: today,
-    });
+    if (!slot) {
+      return res.status(400).json({ success: false, message: "slot is required" });
+    }
+
+    const queue = await Queue.findOne({ doctorId, date: today });
 
     if (!queue) {
-      return res.status(404).json({
-        success: false,
-        message: "No queue found for today",
-      });
+      return res.status(404).json({ success: false, message: "No queue found for today" });
     }
 
-    if (queue.currentToken >= queue.lastIssuedToken) {
-      return res.status(400).json({
-        success: false,
-        message: "No more patients waiting",
-      });
+    const slotQueue = queue.slotQueues.find((s) => s.slot === slot);
+
+    if (!slotQueue) {
+      return res.status(404).json({ success: false, message: "No queue found for this slot" });
     }
 
-    const oldToken = queue.currentToken;
+    if (slotQueue.currentToken >= slotQueue.lastIssuedToken) {
+      return res.status(400).json({ success: false, message: "No more patients waiting in this slot" });
+    }
+
+    const oldToken = slotQueue.currentToken;
     const newToken = oldToken + 1;
 
-    // complete previous token
+    // complete previous token in this slot
     if (oldToken > 0) {
       await Appointment.findOneAndUpdate(
-        {
-          doctorId,
-          date: today,
-          tokenNumber: oldToken,
-          status: "in_progress",
-        },
-        {
-          status: "completed",
-          completedAt: new Date(),
-        }
+        { doctorId, date: today, slot, slotTokenNumber: oldToken, status: "in_progress" },
+        { status: "completed", completedAt: new Date() }
       );
     }
 
-    // start new token
+    // start new token in this slot
     await Appointment.findOneAndUpdate(
-      {
-        doctorId,
-        date: today,
-        tokenNumber: newToken,
-        status: "waiting",
-      },
-      {
-        status: "in_progress",
-      }
+      { doctorId, date: today, slot, slotTokenNumber: newToken, status: "waiting" },
+      { status: "in_progress" }
     );
 
-    // update queue token
-    queue.currentToken = newToken;
+    slotQueue.currentToken = newToken;
     await queue.save();
 
     // socket emit
     const io = req.app.get("io");
     const room = `doctor_${doctorId}`;
-    const payload = { doctorId, currentToken: queue.currentToken, lastIssuedToken: queue.lastIssuedToken };
-    console.log(`[SOCKET] nextToken emit | room=${room} | payload=${JSON.stringify(payload)}`);
-    const roomSockets = await io.in(room).allSockets();
-    console.log(`[SOCKET] Sockets in room ${room}: ${roomSockets.size}`);
+    const payload = {
+      doctorId,
+      slot,
+      slotNumber: slotQueue.slotNumber,
+      currentToken: slotQueue.currentToken,
+      lastIssuedToken: slotQueue.lastIssuedToken,
+    };
     io.to(room).emit("tokenUpdated", payload);
-    console.log(`[SOCKET] tokenUpdated emitted | room=${room}`);
 
-    // 🔥 FIREBASE NOTIFICATION LOGIC
-    const notifyToken = queue.currentToken + 5;
-
+    // FCM — notify patient 5 tokens ahead in the same slot
+    const notifySlotToken = slotQueue.currentToken + 2;
     const targetAppointments = await Appointment.find({
       doctorId,
       date: today,
-      tokenNumber: notifyToken,
+      slot,
+      slotTokenNumber: notifySlotToken,
       status: "waiting",
     }).populate("patientId");
 
     for (const item of targetAppointments) {
       const fcmToken = item.patientId?.fcmToken;
-      const notificationsEnabled = item.patientId?.notificationsEnabled !== false;
-
-      if (fcmToken && notificationsEnabled) {
+      if (fcmToken && item.patientId?.notificationsEnabled !== false) {
         const title = "Appointment Reminder";
-        const body = `Current token is ${queue.currentToken}. Your token is ${item.tokenNumber}. Please reach clinic soon.`;
+        const body = `Current token is ${slotQueue.currentToken}. Your token is ${item.slotTokenNumber}. Please reach clinic soon.`;
         try {
           await admin.messaging().send({ token: fcmToken, notification: { title, body } });
-          console.log("Notification sent to token:", item.tokenNumber);
         } catch (err) {
           console.log("FCM send failed:", err.message);
         }
@@ -168,15 +151,14 @@ export const nextToken = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Moved to next token",
-      currentToken: queue.currentToken,
-      lastIssuedToken: queue.lastIssuedToken,
+      slot,
+      slotNumber: slotQueue.slotNumber,
+      currentToken: slotQueue.currentToken,
+      lastIssuedToken: slotQueue.lastIssuedToken,
     });
 
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -185,96 +167,71 @@ export const markDone = async (req, res) => {
     const doctorId = req.user._id;
     const appointmentId = req.params.id;
 
-    const appointment = await Appointment.findOne({
-      _id: appointmentId,
-      doctorId,
-    });
+    const appointment = await Appointment.findOne({ _id: appointmentId, doctorId });
 
     if (!appointment) {
-      return res.status(404).json({
-        success: false,
-        message: "Appointment not found",
-      });
+      return res.status(404).json({ success: false, message: "Appointment not found" });
     }
 
     if (appointment.status === "completed") {
-      return res.status(400).json({
-        success: false,
-        message: "Already completed",
-      });
+      return res.status(400).json({ success: false, message: "Already completed" });
     }
 
-    // mark completed
     appointment.status = "completed";
     appointment.completedAt = new Date();
     await appointment.save();
 
-    const queue = await Queue.findOne({
-      doctorId,
-      date: appointment.date,
-    });
+    const queue = await Queue.findOne({ doctorId, date: appointment.date });
 
-    if (!queue) {
-      return res.status(404).json({
-        success: false,
-        message: "Queue not found",
-      });
-    }
-
-    // currentToken stays at the completed token number
-    if (appointment.tokenNumber >= queue.currentToken) {
-      queue.currentToken = appointment.tokenNumber;
-    }
-
-    await queue.save();
-
-    // socket emit
-    const io = req.app.get("io");
-    const room = `doctor_${doctorId}`;
-    const payload = { doctorId, currentToken: queue.currentToken, lastIssuedToken: queue.lastIssuedToken };
-    console.log(`[SOCKET] markDone emit | room=${room} | payload=${JSON.stringify(payload)}`);
-    const roomSockets = await io.in(room).allSockets();
-    console.log(`[SOCKET] Sockets in room ${room}: ${roomSockets.size}`);
-    io.to(room).emit("tokenUpdated", payload);
-    console.log(`[SOCKET] tokenUpdated emitted | room=${room}`);
-
-    // notify patient who is 5 tokens ahead of completed token
-    const notifyToken = appointment.tokenNumber + 5;
-    console.log(`[FCM] Searching for tokenNumber=${notifyToken} | date=${appointment.date} | doctorId=${doctorId}`);
-
-    const targetAppointment = await Appointment.findOne({
-      doctorId,
-      date: appointment.date,
-      tokenNumber: notifyToken,
-      status: "waiting",
-    }).populate("patientId");
-
-    console.log(`[FCM] targetAppointment found=${!!targetAppointment} | fcmToken=${targetAppointment?.patientId?.fcmToken || "EMPTY"}`);
-
-    if (targetAppointment?.patientId?.fcmToken && targetAppointment.patientId.notificationsEnabled !== false) {
-      const title = "Appointment Reminder";
-      const body = `Current token is ${appointment.tokenNumber}. Your token is ${notifyToken}. Please reach clinic soon.`;
-      try {
-        await admin.messaging().send({ token: targetAppointment.patientId.fcmToken, notification: { title, body } });
-        console.log(`[FCM] Notification sent to tokenNumber=${notifyToken}`);
-      } catch (err) {
-        console.log(`[FCM] Send failed for tokenNumber=${notifyToken}:`, err.message);
+    if (queue) {
+      const slotQueue = queue.slotQueues.find((s) => s.slot === appointment.slot);
+      if (slotQueue && appointment.slotTokenNumber >= slotQueue.currentToken) {
+        slotQueue.currentToken = appointment.slotTokenNumber;
+        await queue.save();
       }
-      await Notification.create({ patientId: targetAppointment.patientId._id, title, body, type: "queue_reminder", doctorId });
+
+      // socket emit
+      const io = req.app.get("io");
+      const room = `doctor_${doctorId}`;
+      io.to(room).emit("tokenUpdated", {
+        doctorId,
+        slot: appointment.slot,
+        slotNumber: slotQueue?.slotNumber,
+        currentToken: slotQueue?.currentToken ?? 0,
+        lastIssuedToken: slotQueue?.lastIssuedToken ?? 0,
+      });
+
+      // FCM — notify patient 5 tokens ahead in same slot
+      const notifySlotToken = appointment.slotTokenNumber + 2;
+      const targetAppointment = await Appointment.findOne({
+        doctorId,
+        date: appointment.date,
+        slot: appointment.slot,
+        slotTokenNumber: notifySlotToken,
+        status: "waiting",
+      }).populate("patientId");
+
+      if (targetAppointment?.patientId?.fcmToken && targetAppointment.patientId.notificationsEnabled !== false) {
+        const title = "Appointment Reminder";
+        const body = `Current token is ${appointment.slotTokenNumber}. Your token is ${notifySlotToken}. Please reach clinic soon.`;
+        try {
+          await admin.messaging().send({ token: targetAppointment.patientId.fcmToken, notification: { title, body } });
+        } catch (err) {
+          console.log(`[FCM] Send failed:`, err.message);
+        }
+        await Notification.create({ patientId: targetAppointment.patientId._id, title, body, type: "queue_reminder", doctorId });
+      }
     }
 
     res.status(200).json({
       success: true,
       message: "Appointment completed",
-      currentToken: queue.currentToken,
-      completedToken: appointment.tokenNumber,
+      slot: appointment.slot,
+      completedToken: appointment.slotTokenNumber,
     });
 
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -816,19 +773,44 @@ export const getCompletedAppointments = async (req, res) => {
 
     const totalRevenue = allForRevenue.reduce((sum, a) => sum + (a.consultationFee || 0), 0);
 
-    const result = appointments.map((a) => ({
-      appointmentId: a.appointmentId || a._id,
-      patientName: a.fullName || a.patientId?.fullName || "",
-      mobile: a.phone || a.patientId?.mobile || "",
-      date: a.date,
-      slot: a.slot,
-      tokenNumber: a.tokenNumber,
-      consultationFee: a.consultationFee,
-      paymentMethod: a.paymentMethod,
-      paymentStatus: a.paymentStatus,
-      isFollowup: a.isFollowup,
-      completedAt: a.completedAt,
-    }));
+    const parseSlotTime = (str) => {
+      const s = str.trim();
+      const isPM = /pm/i.test(s);
+      const isAM = /am/i.test(s);
+      const [h, m] = s.replace(/[a-zA-Z\s]/g, "").split(":").map(Number);
+      let hour = h;
+      if (isPM && hour !== 12) hour += 12;
+      if (isAM && hour === 12) hour = 0;
+      return hour * 60 + (m || 0);
+    };
+
+    const result = appointments.map((a) => {
+      let estimatedTime = null;
+      if (a.slot && a.slotTokenNumber) {
+        const [startPart] = a.slot.split(" - ").map((s) => s.trim());
+        const totalMin = parseSlotTime(startPart) + (a.slotTokenNumber - 1) * 5;
+        const h = Math.floor(totalMin / 60) % 24;
+        const m = totalMin % 60;
+        const period = h >= 12 ? "PM" : "AM";
+        const displayH = h % 12 || 12;
+        estimatedTime = `${String(displayH).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
+      }
+      return {
+        appointmentId: a.appointmentId || a._id,
+        patientName: a.fullName || a.patientId?.fullName || "",
+        mobile: a.phone || a.patientId?.mobile || "",
+        date: a.date,
+        slot: a.slot,
+        slotNumber: a.slotNumber,
+        tokenNumber: a.slotTokenNumber,
+        estimatedTime,
+        consultationFee: a.consultationFee,
+        paymentMethod: a.paymentMethod,
+        paymentStatus: a.paymentStatus,
+        isFollowup: a.isFollowup,
+        completedAt: a.completedAt,
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -917,22 +899,25 @@ export const createWalkInAppointment = async (req, res) => {
       });
     }
 
+    // determine slotNumber from doctor's availability for that day
+    const dayName = new Date(date).toLocaleDateString("en-US", { weekday: "long" });
+    const dayAvail = doctor.availability.find((d) => d.day === dayName && d.isActive);
+    const slotIndex = dayAvail?.slots.findIndex((s) => `${s.startTime} - ${s.endTime}` === slot) ?? -1;
+    const slotNumber = slotIndex + 1;
+
+    // per-slot queue
     let queue = await Queue.findOne({ doctorId, date });
     if (!queue) {
-      queue = await Queue.create({ doctorId, date, currentToken: 0, lastIssuedToken: 0 });
+      queue = new Queue({ doctorId, date, slotQueues: [] });
     }
-
-    const tokenNumber = queue.lastIssuedToken + 1;
-    queue.lastIssuedToken = tokenNumber;
+    let slotQueue = queue.slotQueues.find((s) => s.slot === slot);
+    if (!slotQueue) {
+      queue.slotQueues.push({ slot, slotNumber, currentToken: 0, lastIssuedToken: 0 });
+      slotQueue = queue.slotQueues[queue.slotQueues.length - 1];
+    }
+    const slotTokenNumber = slotQueue.lastIssuedToken + 1;
+    slotQueue.lastIssuedToken = slotTokenNumber;
     await queue.save();
-
-    const slotBookings = await Appointment.countDocuments({
-      doctorId,
-      date,
-      slot,
-      status: { $ne: "cancelled" },
-    });
-    const slotTokenNumber = slotBookings + 1;
 
     let consultationFee = doctor.clinic?.consultationFee || 0;
     let isFollowup = false;
@@ -973,7 +958,8 @@ export const createWalkInAppointment = async (req, res) => {
       patientId: patient._id,
       date,
       slot,
-      tokenNumber,
+      slotNumber,
+      tokenNumber: slotTokenNumber,
       slotTokenNumber,
       fullName,
       email: email || "",
@@ -989,7 +975,12 @@ export const createWalkInAppointment = async (req, res) => {
     // emit dashboard update to doctor's room
     const io = req.app.get("io");
     const room = `doctor_${doctorId}`;
-    io.to(room).emit("dashboardUpdated", { doctorId, lastIssuedToken: queue.lastIssuedToken });
+    io.to(room).emit("dashboardUpdated", {
+      doctorId,
+      slot,
+      slotNumber,
+      lastIssuedToken: slotQueue.lastIssuedToken,
+    });
 
     const parseSlotTime = (str) => {
       const s = str.trim();
@@ -1014,7 +1005,8 @@ export const createWalkInAppointment = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Walk-in appointment created",
-      tokenNumber,
+      slotNumber,
+      tokenNumber: slotTokenNumber,
       slotTokenNumber,
       expectedTime,
       appointmentId,

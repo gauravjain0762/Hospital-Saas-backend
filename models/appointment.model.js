@@ -36,6 +36,11 @@ const appointmentSchema = new mongoose.Schema(
     required: true,
   },
 
+  slotNumber: {
+    type: Number,
+    default: null,
+  },
+
   slotTokenNumber: {
     type: Number,
     default: null,

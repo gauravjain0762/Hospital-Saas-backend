@@ -13,14 +13,16 @@ const queueSchema = new mongoose.Schema(
     required: true,
   },
 
-  currentToken: {
-    type: Number,
-    default: 0,
-  },
-
-  lastIssuedToken: {
-    type: Number,
-    default: 0,
+  slotQueues: {
+    type: [
+      {
+        slot: { type: String, required: true },       // "10:00 AM - 11:00 AM"
+        slotNumber: { type: Number, required: true }, // 1, 2, 3...
+        currentToken: { type: Number, default: 0 },
+        lastIssuedToken: { type: Number, default: 0 },
+      },
+    ],
+    default: [],
   },
 },
 { timestamps: true }

@@ -531,19 +531,24 @@ export const bookAppointment = async (req, res) => {
       });
     }
 
+    // determine slotNumber from doctor's availability for that day
+    const slotIndex = dayAvailability?.slots.findIndex(
+      (s) => `${s.startTime} - ${s.endTime}` === slot
+    ) ?? -1;
+    const slotNumber = slotIndex + 1;
+
+    // per-slot queue
     let queue = await Queue.findOne({ doctorId, date });
-
     if (!queue) {
-      queue = await Queue.create({
-        doctorId,
-        date,
-        currentToken: 0,
-        lastIssuedToken: 0,
-      });
+      queue = new Queue({ doctorId, date, slotQueues: [] });
     }
-
-    const tokenNumber = queue.lastIssuedToken + 1;
-    queue.lastIssuedToken = tokenNumber;
+    let slotQueue = queue.slotQueues.find((s) => s.slot === slot);
+    if (!slotQueue) {
+      queue.slotQueues.push({ slot, slotNumber, currentToken: 0, lastIssuedToken: 0 });
+      slotQueue = queue.slotQueues[queue.slotQueues.length - 1];
+    }
+    const slotTokenNumber = slotQueue.lastIssuedToken + 1;
+    slotQueue.lastIssuedToken = slotTokenNumber;
     await queue.save();
 
     let consultationFee = doctor.clinic?.consultationFee || 0;
@@ -579,15 +584,14 @@ export const bookAppointment = async (req, res) => {
     const unique = Math.random().toString(36).substring(2, 4).toUpperCase();
     const appointmentId = `${docPrefix}${patPrefix}${mobPrefix}${unique}`;
 
-    const slotTokenNumber = slotBookings + 1;
-
     const appointment = await Appointment.create({
       appointmentId,
       doctorId,
       patientId,
       date,
       slot,
-      tokenNumber,
+      slotNumber,
+      tokenNumber: slotTokenNumber,
       slotTokenNumber,
       fullName,
       email,
@@ -603,13 +607,12 @@ export const bookAppointment = async (req, res) => {
     // emit to doctor's room so dashboard updates in real-time
     const io = req.app.get("io");
     const room = `doctor_${doctorId}`;
-    const socketsInRoom = await io.in(room).allSockets();
-    console.log(`[SOCKET] dashboardUpdated | room=${room} | socketsInRoom=${socketsInRoom.size} | lastIssuedToken=${queue.lastIssuedToken}`);
     io.to(room).emit("dashboardUpdated", {
       doctorId,
-      lastIssuedToken: queue.lastIssuedToken,
+      slot,
+      slotNumber,
+      lastIssuedToken: slotQueue.lastIssuedToken,
     });
-    console.log(`[SOCKET] dashboardUpdated emitted | room=${room}`);
 
     const parseSlotTime = (str) => {
       const s = str.trim();
@@ -635,8 +638,8 @@ export const bookAppointment = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Appointment booked successfully",
-      tokenNumber,
-      waitList: tokenNumber,
+      slotNumber,
+      tokenNumber: slotTokenNumber,
       expectedTime,
       consultationFee,
       paymentStatus,
@@ -717,7 +720,8 @@ export const getMyAppointments = async (req, res) => {
         date: item.date,
       });
 
-      const currentToken = queue?.currentToken || 0;
+      const slotQ = queue?.slotQueues?.find((s) => s.slot === item.slot);
+      const currentToken = slotQ?.currentToken || 0;
 
       let estimatedTime = null;
       if (["waiting", "in_progress", "completed"].includes(item.status) && item.slot) {
@@ -731,7 +735,8 @@ export const getMyAppointments = async (req, res) => {
       result.push({
         id: item._id,
         status: item.status,
-        tokenNumber: item.tokenNumber,
+        slotNumber: item.slotNumber,
+        tokenNumber: item.slotTokenNumber,
         currentToken,
         date: item.date,
         slot: item.slot,
@@ -855,15 +860,18 @@ export const getQueueStatus = async (req, res) => {
       date: appointment.date,
     });
 
-    const currentToken = queue?.currentToken || 0;
+    const slotQueue = queue?.slotQueues?.find((s) => s.slot === appointment.slot);
+    const currentToken = slotQueue?.currentToken || 0;
 
-    let patientsAhead = appointment.tokenNumber - currentToken;
+    let patientsAhead = appointment.slotTokenNumber - currentToken;
 
     if (patientsAhead < 0) patientsAhead = 0;
 
     res.status(200).json({
       success: true,
-      yourToken: appointment.tokenNumber,
+      slotNumber: appointment.slotNumber,
+      slot: appointment.slot,
+      yourToken: appointment.slotTokenNumber,
       currentToken,
       patientsAhead,
       status: appointment.status,
@@ -963,7 +971,8 @@ export const getAppointmentDetails = async (req, res) => {
       appointment: {
         id: appointment._id,
         displayId,
-        tokenNumber: appointment.tokenNumber,
+        slotNumber: appointment.slotNumber,
+        tokenNumber: appointment.slotTokenNumber,
         date: appointment.date,
         time: appointment.visitTime || appointment.slot,
         slot: appointment.slot,
@@ -1074,13 +1083,14 @@ export const getAppointmentPreview = async (req, res) => {
       return res.status(404).json({ success: false, message: "Doctor not found" });
     }
 
-    const [lastDone, lastBooked] = await Promise.all([
-      Appointment.findOne({ doctorId, date, slot, status: "completed" }).sort({ tokenNumber: -1 }),
-      Appointment.findOne({ doctorId, date, slot, status: { $ne: "cancelled" } }).sort({ tokenNumber: -1 }),
+    const [queue, lastBooked] = await Promise.all([
+      Queue.findOne({ doctorId, date }),
+      Appointment.findOne({ doctorId, date, slot, status: { $ne: "cancelled" } }).sort({ slotTokenNumber: -1 }),
     ]);
 
-    const currentToken = lastDone ? lastDone.tokenNumber : 0;
-    const yourToken = lastBooked ? lastBooked.tokenNumber + 1 : 1;
+    const slotQ = queue?.slotQueues?.find((s) => s.slot === slot);
+    const currentToken = slotQ?.currentToken || 0;
+    const yourToken = lastBooked ? lastBooked.slotTokenNumber + 1 : 1;
 
     const parseSlotTime = (str) => {
       const s = str.trim();
@@ -1547,7 +1557,7 @@ export const getVisitTimeEstimate = async (req, res) => {
       date,
       slot,
       status: "waiting",
-      tokenNumber: { $lt: token },
+      slotTokenNumber: { $lt: token },
     });
 
     const totalMinutes = slotStartMinutes + (token - 1) * 5;
@@ -1583,11 +1593,36 @@ export const getMySessions = async (req, res) => {
     const UPCOMING_STATUSES = ["waiting", "in_progress"];
     const PAST_STATUSES = ["completed", "cancelled", "no_show", "skipped"];
 
+    const parseSlotTime = (str) => {
+      const s = str.trim();
+      const isPM = /pm/i.test(s);
+      const isAM = /am/i.test(s);
+      const [h, m] = s.replace(/[a-zA-Z\s]/g, "").split(":").map(Number);
+      let hour = h;
+      if (isPM && hour !== 12) hour += 12;
+      if (isAM && hour === 12) hour = 0;
+      return hour * 60 + (m || 0);
+    };
+
+    const calcEstimatedTime = (slot, slotTokenNumber) => {
+      if (!slot || !slotTokenNumber) return null;
+      const [startPart] = slot.split(" - ").map((s) => s.trim());
+      const slotStart = parseSlotTime(startPart);
+      const totalMin = slotStart + (slotTokenNumber - 1) * 5;
+      const h = Math.floor(totalMin / 60) % 24;
+      const m = totalMin % 60;
+      const period = h >= 12 ? "PM" : "AM";
+      const displayH = h % 12 || 12;
+      return `${String(displayH).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
+    };
+
     const formatSession = (item) => ({
       id: item._id,
       date: item.date,
       slot: item.slot,
-      tokenNumber: item.tokenNumber,
+      slotNumber: item.slotNumber,
+      tokenNumber: item.slotTokenNumber,
+      estimatedTime: calcEstimatedTime(item.slot, item.slotTokenNumber),
       status: item.status,
       paymentStatus: item.paymentStatus,
       consultationFee: item.consultationFee,
@@ -1611,17 +1646,9 @@ export const getMySessions = async (req, res) => {
       .filter((a) => UPCOMING_STATUSES.includes(a.status))
       .map(formatSession);
 
-    // Deduplicate past by clinic — keep only the most recent visit per clinic
-    const pastDeduped = (() => {
-      const seen = new Map();
-      for (const a of appointments.filter((a) => PAST_STATUSES.includes(a.status))) {
-        const key = (a.doctorId?.clinicId ?? a.doctorId?._id)?.toString();
-        if (key && !seen.has(key)) seen.set(key, a);
-      }
-      return Array.from(seen.values());
-    })();
-
-    const past = pastDeduped.map(formatSession);
+    const past = appointments
+      .filter((a) => PAST_STATUSES.includes(a.status))
+      .map(formatSession);
 
     res.status(200).json({
       success: true,

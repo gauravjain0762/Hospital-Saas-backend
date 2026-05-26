@@ -4,6 +4,7 @@ const router = express.Router();
 import { protect } from "../middleware/authMiddleware.js";
 import { getAppointmentPreview } from "../controllers/patient.controller.js";
 import { getTodayQueue,
+    nextToken,
     markDone,
     markPaid,
     getDoctorDashboard,
@@ -45,6 +46,7 @@ import { getTodayQueue,
 router.get("/profile", protect, getDoctorProfile);
 router.get("/slots", protect, getDoctorSlots);
 router.get("/today-queue", protect, getTodayQueue);
+router.post("/next-token", protect, nextToken);
 router.patch("/mark-done/:id", protect, markDone);
 router.patch("/mark-paid/:id", protect, markPaid);
 router.get("/dashboard", protect, getDoctorDashboard);
