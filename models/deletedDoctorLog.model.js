@@ -13,6 +13,11 @@ const deletedDoctorLogSchema = new mongoose.Schema(
       state: { type: String, default: "" },
     },
     reason: { type: String, default: "" },
+    deletedBy: {
+      type: String,
+      enum: ["self_requested", "admin"],
+      default: "admin",
+    },
     deletedAt: { type: Date, default: Date.now },
   },
   { timestamps: false }

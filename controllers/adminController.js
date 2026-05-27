@@ -227,11 +227,25 @@ export const toggleDoctorActiveStatus = async (req, res) => {
 export const deleteDoctor = async (req, res) => {
   try {
     const { id } = req.params;
- 
+
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ success: false, message: "Doctor not found" });
- 
-    // invalidate tokens of all patients who had appointments with this doctor
+
+    await DeletedDoctorLog.create({
+      doctorId: user._id,
+      name: user.name || "",
+      email: user.email || "",
+      phone: user.phone || "",
+      clinic: {
+        clinicName: user.clinic?.clinicName || "",
+        address: user.clinic?.address || "",
+        city: user.clinic?.city || "",
+        state: user.clinic?.state || "",
+      },
+      reason: user.deletionReason || "",
+      deletedBy: "admin",
+    });
+
     const patientIds = await Appointment.distinct("patientId", { doctorId: id });
     if (patientIds.length > 0) {
       await Patient.updateMany(
@@ -253,12 +267,33 @@ export const deleteDoctor = async (req, res) => {
 export const deleteDoctors = async (req, res) => {
   try {
     const { ids } = req.body;
- 
+
     if (!ids || !Array.isArray(ids) || ids.length === 0)
       return res.status(400).json({ success: false, message: "ids array is required" });
- 
-    // delete all their appointments first
-    // invalidate tokens of all patients who had appointments with these doctors
+
+    const doctors = await User.find({ _id: { $in: ids } }).select(
+      "name email phone clinic deletionReason"
+    );
+
+    if (doctors.length > 0) {
+      await DeletedDoctorLog.insertMany(
+        doctors.map((d) => ({
+          doctorId: d._id,
+          name: d.name || "",
+          email: d.email || "",
+          phone: d.phone || "",
+          clinic: {
+            clinicName: d.clinic?.clinicName || "",
+            address: d.clinic?.address || "",
+            city: d.clinic?.city || "",
+            state: d.clinic?.state || "",
+          },
+          reason: d.deletionReason || "",
+          deletedBy: "admin",
+        }))
+      );
+    }
+
     const patientIds = await Appointment.distinct("patientId", { doctorId: { $in: ids } });
     if (patientIds.length > 0) {
       await Patient.updateMany(
@@ -982,6 +1017,7 @@ export const getDeletedDoctors = async (req, res) => {
         phone: r.phone,
         clinic: r.clinic,
         reason: r.reason,
+        deletedBy: r.deletedBy,
         deletedAt: r.deletedAt,
       })),
     });
@@ -1051,6 +1087,7 @@ export const approveDeletion = async (req, res) => {
         state: doctor.clinic?.state || "",
       },
       reason: doctor.deletionReason || "",
+      deletedBy: "self_requested",
     });
 
     const patientIds = await Appointment.distinct("patientId", { doctorId: id });
