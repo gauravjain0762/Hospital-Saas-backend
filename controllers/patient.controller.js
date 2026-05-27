@@ -1490,6 +1490,7 @@ export const getClinicById = async (req, res) => {
         longitude: firstDoc?.clinic?.longitude ?? null,
         photos: clinic.photos || [],
         googleBusinessLink: firstDoc?.clinic?.googleBusinessLink || "",
+        phone: clinic.phone || "",
       },
       doctors: doctors.map((d) => ({
         id: d._id,
