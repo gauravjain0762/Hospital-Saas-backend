@@ -12,7 +12,6 @@ import admin from "../utils/firebase.js";
 import xlsx from "xlsx";
 import jwt from "jsonwebtoken";
 import { checkAndDeductToken, refundToken } from "../utils/tokenGuard.js";
-import DeletedDoctorLog from "../models/deletedDoctorLog.model.js";
 
 const slotLabel = (n) => (n != null ? String.fromCharCode(64 + n) : "");
 
@@ -1526,26 +1525,23 @@ export const deleteDoctorAccount = async (req, res) => {
     const doctor = await User.findById(doctorId);
     if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found" });
 
-    await DeletedDoctorLog.create({
-      doctorId: doctor._id,
-      name: doctor.name || "",
-      email: doctor.email || "",
-      phone: doctor.phone || "",
-      clinic: {
-        clinicName: doctor.clinic?.clinicName || "",
-        address: doctor.clinic?.address || "",
-        city: doctor.clinic?.city || "",
-        state: doctor.clinic?.state || "",
-      },
-      reason: reason || "",
-    });
+    if (doctor.deletionRequested) {
+      return res.status(400).json({
+        success: false,
+        message: "A deletion request is already pending admin approval",
+      });
+    }
 
-    await User.findByIdAndDelete(doctorId);
+    doctor.activeStatus = "inactive";
+    doctor.deletionRequested = true;
+    doctor.deletionReason = reason || "";
+    doctor.deletionRequestedAt = new Date();
+    doctor.tokenVersion += 1;
+    await doctor.save();
 
     res.status(200).json({
       success: true,
-      message: "Account deleted successfully",
-      reason: reason || null,
+      message: "Deletion request submitted. Your account has been deactivated pending admin review.",
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

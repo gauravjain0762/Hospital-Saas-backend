@@ -990,4 +990,109 @@ export const getDeletedDoctors = async (req, res) => {
   }
 };
 
+// GET /api/admin/deletion-requests
+export const getDeletionRequests = async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = 20;
+    const skip = (page - 1) * limit;
+
+    const total = await User.countDocuments({ deletionRequested: true });
+    const doctors = await User.find({ deletionRequested: true })
+      .select("name email phone clinic deletionReason deletionRequestedAt")
+      .sort({ deletionRequestedAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+      doctors: doctors.map((d) => ({
+        id: d._id,
+        name: d.name || "",
+        email: d.email || "",
+        phone: d.phone || "",
+        clinic: {
+          clinicName: d.clinic?.clinicName || "",
+          address: d.clinic?.address || "",
+          city: d.clinic?.city || "",
+          state: d.clinic?.state || "",
+        },
+        reason: d.deletionReason || "",
+        requestedAt: d.deletionRequestedAt,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/admin/deletion-requests/:id/approve
+export const approveDeletion = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const doctor = await User.findOne({ _id: id, deletionRequested: true });
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: "Deletion request not found" });
+    }
+
+    await DeletedDoctorLog.create({
+      doctorId: doctor._id,
+      name: doctor.name || "",
+      email: doctor.email || "",
+      phone: doctor.phone || "",
+      clinic: {
+        clinicName: doctor.clinic?.clinicName || "",
+        address: doctor.clinic?.address || "",
+        city: doctor.clinic?.city || "",
+        state: doctor.clinic?.state || "",
+      },
+      reason: doctor.deletionReason || "",
+    });
+
+    const patientIds = await Appointment.distinct("patientId", { doctorId: id });
+    if (patientIds.length > 0) {
+      await Patient.updateMany(
+        { _id: { $in: patientIds } },
+        { $inc: { tokenVersion: 1 } }
+      );
+    }
+
+    await Appointment.deleteMany({ doctorId: id });
+    await User.findByIdAndDelete(id);
+
+    res.status(200).json({ success: true, message: "Doctor account deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/admin/deletion-requests/:id/reject
+export const rejectDeletion = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const doctor = await User.findOne({ _id: id, deletionRequested: true });
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: "Deletion request not found" });
+    }
+
+    doctor.deletionRequested = false;
+    doctor.deletionReason = "";
+    doctor.deletionRequestedAt = null;
+    doctor.activeStatus = "active";
+    await doctor.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Deletion request rejected. Doctor account has been reactivated.",
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 

@@ -29,6 +29,9 @@ import {
     adminAddWalletBalance,
     getDashboardStats,
     getDeletedDoctors,
+    getDeletionRequests,
+    approveDeletion,
+    rejectDeletion,
 } from "../controllers/adminController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -101,5 +104,10 @@ router.post("/doctors/:id/wallet/add", adminAddWalletBalance);
 
 // deleted doctors log
 router.get("/deleted-doctors", getDeletedDoctors);
+
+// doctor self-deletion requests
+router.get("/deletion-requests", getDeletionRequests);
+router.post("/deletion-requests/:id/approve", approveDeletion);
+router.post("/deletion-requests/:id/reject", rejectDeletion);
 
 export default router;

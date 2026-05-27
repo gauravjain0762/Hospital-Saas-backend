@@ -57,10 +57,14 @@ const userSchema = new mongoose.Schema(
     },
 
     activeStatus: {
-  type: String,
-  enum: ["active", "inactive"],
-  default: "inactive",
-},
+      type: String,
+      enum: ["active", "inactive"],
+      default: "inactive",
+    },
+
+    deletionRequested: { type: Boolean, default: false },
+    deletionReason: { type: String, default: "" },
+    deletionRequestedAt: { type: Date, default: null },
 
     doctorAvailable: {
       type: Boolean,
