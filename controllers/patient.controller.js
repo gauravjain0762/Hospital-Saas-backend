@@ -9,6 +9,8 @@ import Clinic from "../models/clinic.model.js";
 import Notification from "../models/notification.model.js";
 import { checkAndDeductToken, refundToken } from "../utils/tokenGuard.js";
 
+const slotLabel = (n) => (n != null ? String.fromCharCode(64 + n) : "");
+
 //OTP
 const OTP = "123456"; // For testing purposes, use a fixed OTP
 
@@ -610,7 +612,7 @@ export const bookAppointment = async (req, res) => {
     io.to(room).emit("dashboardUpdated", {
       doctorId,
       slot,
-      slotNumber,
+      slotNumber: slotLabel(slotNumber),
       lastIssuedToken: slotQueue.lastIssuedToken,
     });
 
@@ -638,7 +640,7 @@ export const bookAppointment = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Appointment booked successfully",
-      slotNumber,
+      slotNumber: slotLabel(slotNumber),
       tokenNumber: slotTokenNumber,
       expectedTime,
       consultationFee,
@@ -735,7 +737,7 @@ export const getMyAppointments = async (req, res) => {
       result.push({
         id: item._id,
         status: item.status,
-        slotNumber: item.slotNumber,
+        slotNumber: slotLabel(item.slotNumber),
         tokenNumber: item.slotTokenNumber,
         currentToken,
         date: item.date,
@@ -869,7 +871,7 @@ export const getQueueStatus = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      slotNumber: appointment.slotNumber,
+      slotNumber: slotLabel(appointment.slotNumber),
       slot: appointment.slot,
       yourToken: appointment.slotTokenNumber,
       currentToken,
@@ -971,7 +973,7 @@ export const getAppointmentDetails = async (req, res) => {
       appointment: {
         id: appointment._id,
         displayId,
-        slotNumber: appointment.slotNumber,
+        slotNumber: slotLabel(appointment.slotNumber),
         tokenNumber: appointment.slotTokenNumber,
         date: appointment.date,
         time: appointment.visitTime || appointment.slot,
@@ -1620,7 +1622,7 @@ export const getMySessions = async (req, res) => {
       id: item._id,
       date: item.date,
       slot: item.slot,
-      slotNumber: item.slotNumber,
+      slotNumber: slotLabel(item.slotNumber),
       tokenNumber: item.slotTokenNumber,
       estimatedTime: calcEstimatedTime(item.slot, item.slotTokenNumber),
       status: item.status,

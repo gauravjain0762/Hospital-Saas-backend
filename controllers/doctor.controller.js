@@ -13,6 +13,8 @@ import xlsx from "xlsx";
 import jwt from "jsonwebtoken";
 import { checkAndDeductToken, refundToken } from "../utils/tokenGuard.js";
 
+const slotLabel = (n) => (n != null ? String.fromCharCode(64 + n) : "");
+
 export const getTodayQueue = async (req, res) => {
   try {
     const doctorId = req.user._id;
@@ -36,7 +38,7 @@ export const getTodayQueue = async (req, res) => {
     const slotQueues = queue?.slotQueues || [];
     const slotSummary = slotQueues.map((sq) => ({
       slot: sq.slot,
-      slotNumber: sq.slotNumber,
+      slotNumber: slotLabel(sq.slotNumber),
       currentToken: sq.currentToken,
       lastIssuedToken: sq.lastIssuedToken,
     }));
@@ -118,7 +120,7 @@ export const nextToken = async (req, res) => {
     const payload = {
       doctorId,
       slot,
-      slotNumber: slotQueue.slotNumber,
+      slotNumber: slotLabel(slotQueue.slotNumber),
       currentToken: slotQueue.currentToken,
       lastIssuedToken: slotQueue.lastIssuedToken,
     };
@@ -152,7 +154,7 @@ export const nextToken = async (req, res) => {
       success: true,
       message: "Moved to next token",
       slot,
-      slotNumber: slotQueue.slotNumber,
+      slotNumber: slotLabel(slotQueue.slotNumber),
       currentToken: slotQueue.currentToken,
       lastIssuedToken: slotQueue.lastIssuedToken,
     });
@@ -196,7 +198,7 @@ export const markDone = async (req, res) => {
       io.to(room).emit("tokenUpdated", {
         doctorId,
         slot: appointment.slot,
-        slotNumber: slotQueue?.slotNumber,
+        slotNumber: slotLabel(slotQueue?.slotNumber),
         currentToken: slotQueue?.currentToken ?? 0,
         lastIssuedToken: slotQueue?.lastIssuedToken ?? 0,
       });
@@ -801,7 +803,7 @@ export const getCompletedAppointments = async (req, res) => {
         mobile: a.phone || a.patientId?.mobile || "",
         date: a.date,
         slot: a.slot,
-        slotNumber: a.slotNumber,
+        slotNumber: slotLabel(a.slotNumber),
         tokenNumber: a.slotTokenNumber,
         estimatedTime,
         consultationFee: a.consultationFee,
@@ -978,7 +980,7 @@ export const createWalkInAppointment = async (req, res) => {
     io.to(room).emit("dashboardUpdated", {
       doctorId,
       slot,
-      slotNumber,
+      slotNumber: slotLabel(slotNumber),
       lastIssuedToken: slotQueue.lastIssuedToken,
     });
 
@@ -1005,7 +1007,7 @@ export const createWalkInAppointment = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Walk-in appointment created",
-      slotNumber,
+      slotNumber: slotLabel(slotNumber),
       tokenNumber: slotTokenNumber,
       slotTokenNumber,
       expectedTime,
