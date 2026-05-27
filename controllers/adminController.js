@@ -8,6 +8,7 @@ import PatientReport from "../models/patientReport.model.js";
 import Plan from "../models/plan.model.js";
 import { sendApprovalEmail, sendRejectionEmail } from "../utils/sendEmail.js";
 import { formatLegalContent } from "../utils/formatLegalContent.js";
+import DeletedDoctorLog from "../models/deletedDoctorLog.model.js";
 
 //get pending users
 
@@ -956,4 +957,37 @@ export const updateReportStatus = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const getDeletedDoctors = async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = 20;
+    const skip = (page - 1) * limit;
+
+    const total = await DeletedDoctorLog.countDocuments();
+    const records = await DeletedDoctorLog.find()
+      .sort({ deletedAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+      doctors: records.map((r) => ({
+        doctorId: r.doctorId,
+        name: r.name,
+        email: r.email,
+        phone: r.phone,
+        clinic: r.clinic,
+        reason: r.reason,
+        deletedAt: r.deletedAt,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 

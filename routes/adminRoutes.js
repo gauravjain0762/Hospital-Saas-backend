@@ -28,6 +28,7 @@ import {
     getAllAssignedPlans,
     adminAddWalletBalance,
     getDashboardStats,
+    getDeletedDoctors,
 } from "../controllers/adminController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -97,5 +98,8 @@ router.delete("/plans/:id", deletePlan);
 router.post("/doctors/:id/assign-plan", assignPlanToDoctor);
 router.get("/plans/assigned", getAllAssignedPlans);
 router.post("/doctors/:id/wallet/add", adminAddWalletBalance);
+
+// deleted doctors log
+router.get("/deleted-doctors", getDeletedDoctors);
 
 export default router;

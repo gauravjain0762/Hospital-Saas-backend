@@ -12,6 +12,7 @@ import admin from "../utils/firebase.js";
 import xlsx from "xlsx";
 import jwt from "jsonwebtoken";
 import { checkAndDeductToken, refundToken } from "../utils/tokenGuard.js";
+import DeletedDoctorLog from "../models/deletedDoctorLog.model.js";
 
 const slotLabel = (n) => (n != null ? String.fromCharCode(64 + n) : "");
 
@@ -1524,6 +1525,20 @@ export const deleteDoctorAccount = async (req, res) => {
 
     const doctor = await User.findById(doctorId);
     if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found" });
+
+    await DeletedDoctorLog.create({
+      doctorId: doctor._id,
+      name: doctor.name || "",
+      email: doctor.email || "",
+      phone: doctor.phone || "",
+      clinic: {
+        clinicName: doctor.clinic?.clinicName || "",
+        address: doctor.clinic?.address || "",
+        city: doctor.clinic?.city || "",
+        state: doctor.clinic?.state || "",
+      },
+      reason: reason || "",
+    });
 
     await User.findByIdAndDelete(doctorId);
 
