@@ -34,6 +34,7 @@ import {
     getVisitTimeEstimate,
     getMySessions,
     checkFreeFollowup,
+    checkClinicGuard,
 } from "../controllers/patient.controller.js";
 
 import { getLegalContent } from "../controllers/adminController.js";
@@ -92,6 +93,7 @@ router.get("/clinics", getAllClinics);
 router.get("/clinic/:clinicId", getClinicById);
 router.get("/visit-time", getVisitTimeEstimate);
 router.get("/my-sessions", patientAuth, getMySessions);
+router.get("/clinic-guard", patientAuth, checkClinicGuard);
 
 router.get("/notifications", patientAuth, getNotifications);
 router.get("/notifications/unread-count", patientAuth, getUnreadCount);

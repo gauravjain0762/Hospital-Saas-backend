@@ -1730,3 +1730,47 @@ export const checkFreeFollowup = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// GET /api/patient/clinic-guard?clinicId=...
+export const checkClinicGuard = async (req, res) => {
+  try {
+    const patientId = req.patient.id;
+    const { clinicId } = req.query;
+
+    if (!clinicId) {
+      return res.status(400).json({ success: false, message: "clinicId is required" });
+    }
+
+    // find all inactive doctors at this clinic
+    const inactiveDoctors = await User.find({
+      clinicId,
+      role: "doctor",
+      activeStatus: "inactive",
+    }).select("_id");
+
+    if (inactiveDoctors.length === 0) {
+      return res.status(200).json({ success: true, forceLogout: false });
+    }
+
+    const inactiveDoctorIds = inactiveDoctors.map((d) => d._id);
+
+    // check if this patient has an active appointment with any of those inactive doctors
+    const activeAppointment = await Appointment.findOne({
+      patientId,
+      doctorId: { $in: inactiveDoctorIds },
+      status: { $in: ["waiting", "in_progress"] },
+    });
+
+    if (activeAppointment) {
+      return res.status(200).json({
+        success: true,
+        forceLogout: true,
+        message: "Doctor is no longer available. Please log in again.",
+      });
+    }
+
+    return res.status(200).json({ success: true, forceLogout: false });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
