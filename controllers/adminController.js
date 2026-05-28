@@ -203,8 +203,11 @@ export const toggleDoctorActiveStatus = async (req, res) => {
       // expire doctor's own session
       await User.findByIdAndUpdate(id, { $inc: { tokenVersion: 1 } });
 
-      // expire sessions of all patients who had appointments with this doctor
-      const patientIds = await Appointment.distinct("patientId", { doctorId: id });
+      // force logout only patients with upcoming/active appointments with this doctor
+      const patientIds = await Appointment.distinct("patientId", {
+        doctorId: id,
+        status: { $in: ["waiting", "in_progress"] },
+      });
       if (patientIds.length > 0) {
         await Patient.updateMany(
           { _id: { $in: patientIds } },

@@ -452,12 +452,13 @@ export const bookAppointment = async (req, res) => {
       _id: doctorId,
       role: "doctor",
       status: "approved",
+      activeStatus: "active",
     });
 
     if (!doctor) {
       return res.status(404).json({
         success: false,
-        message: "Doctor not found",
+        message: "Doctor not available for booking",
       });
     }
 
@@ -1357,15 +1358,24 @@ export const getNotifications = async (req, res) => {
   }
 };
 
-// GET /api/patient/appointment-stats
+// GET /api/patient/appointment-stats?clinicId=...
 export const getAppointmentStats = async (req, res) => {
   try {
     const patientId = req.patient.id;
+    const { clinicId } = req.query;
+
+    const baseFilter = { patientId };
+
+    if (clinicId) {
+      const doctors = await User.find({ clinicId, role: "doctor" }).select("_id");
+      const doctorIds = doctors.map((d) => d._id);
+      baseFilter.doctorId = { $in: doctorIds };
+    }
 
     const [totalBooked, completedCount, upcomingCount] = await Promise.all([
-      Appointment.countDocuments({ patientId }),
-      Appointment.countDocuments({ patientId, status: "completed" }),
-      Appointment.countDocuments({ patientId, status: { $in: ["waiting", "in_progress"] } }),
+      Appointment.countDocuments(baseFilter),
+      Appointment.countDocuments({ ...baseFilter, status: "completed" }),
+      Appointment.countDocuments({ ...baseFilter, status: { $in: ["waiting", "in_progress"] } }),
     ]);
 
     res.status(200).json({
