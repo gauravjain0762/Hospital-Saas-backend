@@ -1593,9 +1593,6 @@ export const getMySessions = async (req, res) => {
       })
       .sort({ date: -1 });
 
-    const UPCOMING_STATUSES = ["waiting", "in_progress"];
-    const PAST_STATUSES = ["completed", "cancelled", "no_show", "skipped"];
-
     const parseSlotTime = (str) => {
       const s = str.trim();
       const isPM = /pm/i.test(s);
@@ -1645,18 +1642,20 @@ export const getMySessions = async (req, res) => {
       },
     });
 
-    const upcoming = appointments
-      .filter((a) => UPCOMING_STATUSES.includes(a.status))
-      .map(formatSession);
-
-    const past = appointments
-      .filter((a) => PAST_STATUSES.includes(a.status))
-      .map(formatSession);
+    // Deduplicate by clinic — keep only the most recent appointment per clinic
+    const seenClinics = new Set();
+    const sessions = [];
+    for (const appointment of appointments) {
+      const clinicKey = String(appointment.doctorId?.clinicId ?? appointment.doctorId?._id ?? appointment._id);
+      if (!seenClinics.has(clinicKey)) {
+        seenClinics.add(clinicKey);
+        sessions.push(formatSession(appointment));
+      }
+    }
 
     res.status(200).json({
       success: true,
-      upcoming,
-      past,
+      sessions,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
