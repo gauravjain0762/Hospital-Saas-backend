@@ -1586,12 +1586,23 @@ export const getMySessions = async (req, res) => {
   try {
     const patientId = req.patient.id;
 
-    const appointments = await Appointment.find({ patientId })
-      .populate({
-        path: "doctorId",
-        select: "name profilePhoto services clinic clinicId experience maxPatientsPerSlot",
-      })
-      .sort({ date: -1 });
+    const appointments = await Appointment.find({ patientId }).populate({
+      path: "doctorId",
+      select: "name profilePhoto services clinic clinicId experience maxPatientsPerSlot",
+    });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Sort: upcoming (date >= today) first, then past — newest date first within each group
+    appointments.sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      const aUpcoming = dateA >= today;
+      const bUpcoming = dateB >= today;
+      if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
+      return dateB - dateA;
+    });
 
     const parseSlotTime = (str) => {
       const s = str.trim();
