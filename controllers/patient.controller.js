@@ -1024,9 +1024,10 @@ export const getDoctorSlots = async (req, res) => {
       });
     }
 
-    const now = new Date();
-    const today = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    // Use IST (UTC+5:30) for all time/date comparisons
+    const IST_OFFSET = 330 * 60 * 1000;
+    const istNow = new Date(Date.now() + IST_OFFSET);
+    const currentMinutes = istNow.getUTCHours() * 60 + istNow.getUTCMinutes();
 
     const parseTime = (str) => {
       const s = str.trim();
@@ -1052,10 +1053,10 @@ export const getDoctorSlots = async (req, res) => {
     const next7Days = [];
 
     for (let i = 0; i < 7; i++) {
-      const current = new Date();
-      current.setDate(today.getDate() + i);
+      const current = new Date(istNow);
+      current.setUTCDate(istNow.getUTCDate() + i);
 
-      const dayName = dayNames[current.getDay()];
+      const dayName = dayNames[current.getUTCDay()];
 
       const doctorDay = doctor.availability.find(
         (item) => item.day === dayName && item.isActive
