@@ -1372,10 +1372,11 @@ export const getAppointmentStats = async (req, res) => {
       baseFilter.doctorId = { $in: doctorIds };
     }
 
-    const [totalBooked, completedCount, upcomingCount] = await Promise.all([
+    const [totalBooked, completedCount, upcomingCount, cancelledCount] = await Promise.all([
       Appointment.countDocuments(baseFilter),
       Appointment.countDocuments({ ...baseFilter, status: "completed" }),
       Appointment.countDocuments({ ...baseFilter, status: { $in: ["waiting", "in_progress"] } }),
+      Appointment.countDocuments({ ...baseFilter, status: "cancelled" }),
     ]);
 
     res.status(200).json({
@@ -1384,6 +1385,7 @@ export const getAppointmentStats = async (req, res) => {
         totalBooked,
         completed: completedCount,
         upcoming: upcomingCount,
+        cancelled: cancelledCount,
       },
     });
   } catch (error) {
