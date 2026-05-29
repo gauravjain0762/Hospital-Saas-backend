@@ -1024,8 +1024,20 @@ export const getDoctorSlots = async (req, res) => {
       });
     }
 
-    const next7Days = [];
+    const now = new Date();
     const today = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const parseTime = (str) => {
+      const s = str.trim();
+      const isPM = /pm/i.test(s);
+      const isAM = /am/i.test(s);
+      const [h, m] = s.replace(/[a-zA-Z\s]/g, "").split(":").map(Number);
+      let hour = h;
+      if (isPM && hour !== 12) hour += 12;
+      if (isAM && hour === 12) hour = 0;
+      return hour * 60 + (m || 0);
+    };
 
     const dayNames = [
       "Sunday",
@@ -1036,6 +1048,8 @@ export const getDoctorSlots = async (req, res) => {
       "Friday",
       "Saturday"
     ];
+
+    const next7Days = [];
 
     for (let i = 0; i < 7; i++) {
       const current = new Date();
@@ -1048,13 +1062,20 @@ export const getDoctorSlots = async (req, res) => {
       );
 
       if (doctorDay) {
-        next7Days.push({
-          date: current.toISOString().split("T")[0],
-          day: dayName,
-          availableSlots: doctorDay.slots.map(
-            (slot) => `${slot.startTime} - ${slot.endTime}`
-          )
-        });
+        let slots = doctorDay.slots;
+
+        // for today, remove slots whose end time has already passed
+        if (i === 0) {
+          slots = slots.filter((slot) => parseTime(slot.endTime) > currentMinutes);
+        }
+
+        if (slots.length > 0) {
+          next7Days.push({
+            date: current.toISOString().split("T")[0],
+            day: dayName,
+            availableSlots: slots.map((slot) => `${slot.startTime} - ${slot.endTime}`)
+          });
+        }
       }
     }
 
