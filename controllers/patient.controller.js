@@ -1103,7 +1103,7 @@ export const getAppointmentPreview = async (req, res) => {
       return res.status(400).json({ success: false, message: "date and slot are required" });
     }
 
-    const doctor = await User.findById(doctorId).select("clinic maxPatientsPerSlot");
+    const doctor = await User.findById(doctorId).select("clinic maxPatientsPerSlot availability");
     if (!doctor) {
       return res.status(404).json({ success: false, message: "Doctor not found" });
     }
@@ -1115,6 +1115,11 @@ export const getAppointmentPreview = async (req, res) => {
 
     const slotQ = queue?.slotQueues?.find((s) => s.slot === slot);
     const currentToken = slotQ?.currentToken || 0;
+
+    const selectedDay = new Date(date).toLocaleDateString("en-US", { weekday: "long" });
+    const dayAvailability = doctor.availability?.find((d) => d.day === selectedDay && d.isActive);
+    const slotIndex = dayAvailability?.slots.findIndex((s) => `${s.startTime} - ${s.endTime}` === slot) ?? -1;
+    const slotNumber = slotLabel(slotQ?.slotNumber ?? (slotIndex >= 0 ? slotIndex + 1 : null));
     const yourToken = lastBooked ? lastBooked.slotTokenNumber + 1 : 1;
 
     const parseSlotTime = (str) => {
@@ -1142,7 +1147,7 @@ export const getAppointmentPreview = async (req, res) => {
 
     res.json({
       success: true,
-      slotNumber: slotLabel(slotQ?.slotNumber),
+      slotNumber,
       currentToken,
       yourToken,
       estimatedWaitMinutes: waitMinutes,
