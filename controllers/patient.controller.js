@@ -1142,6 +1142,7 @@ export const getAppointmentPreview = async (req, res) => {
 
     res.json({
       success: true,
+      slotNumber: slotLabel(slotQ?.slotNumber),
       currentToken,
       yourToken,
       estimatedWaitMinutes: waitMinutes,
