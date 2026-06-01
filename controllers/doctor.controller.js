@@ -15,6 +15,27 @@ import { checkAndDeductToken, refundToken } from "../utils/tokenGuard.js";
 
 const slotLabel = (n) => (n != null ? String.fromCharCode(64 + n) : "");
 
+const parseSlotTime = (str) => {
+  const s = str.trim();
+  const isPM = /pm/i.test(s);
+  const isAM = /am/i.test(s);
+  const [h, m] = s.replace(/[a-zA-Z\s]/g, "").split(":").map(Number);
+  let hour = h;
+  if (isPM && hour !== 12) hour += 12;
+  if (isAM && hour === 12) hour = 0;
+  return hour * 60 + (m || 0);
+};
+
+const calcEstimatedTime = (slot, slotTokenNumber) => {
+  const [startPart] = slot.split(" - ").map((s) => s.trim());
+  const totalMins = parseSlotTime(startPart) + (slotTokenNumber - 1) * 5;
+  const estHour = Math.floor(totalMins / 60) % 24;
+  const estMin = totalMins % 60;
+  const period = estHour >= 12 ? "PM" : "AM";
+  const displayHour = estHour % 12 || 12;
+  return `${String(displayHour).padStart(2, "0")}:${String(estMin).padStart(2, "0")} ${period}`;
+};
+
 export const getTodayQueue = async (req, res) => {
   try {
     const doctorId = req.user._id;
@@ -33,7 +54,11 @@ export const getTodayQueue = async (req, res) => {
     const appointments = (await Appointment.find(appointmentQuery)
       .populate("patientId", "fullName mobile profilePhoto")
       .sort({ slotNumber: 1, slotTokenNumber: 1 }))
-      .map((a) => ({ ...a.toObject(), slotNumber: slotLabel(a.slotNumber) }));
+      .map((a) => ({
+        ...a.toObject(),
+        slotNumber: slotLabel(a.slotNumber),
+        estimatedTime: calcEstimatedTime(a.slot, a.slotTokenNumber),
+      }));
 
     // build per-slot summary
     const slotQueues = queue?.slotQueues || [];
