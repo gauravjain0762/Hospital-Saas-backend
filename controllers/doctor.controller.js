@@ -30,9 +30,10 @@ export const getTodayQueue = async (req, res) => {
     const appointmentQuery = { doctorId, date: today, status: resolvedStatus };
     if (slot) appointmentQuery.slot = slot;
 
-    const appointments = await Appointment.find(appointmentQuery)
+    const appointments = (await Appointment.find(appointmentQuery)
       .populate("patientId", "fullName mobile profilePhoto")
-      .sort({ slotNumber: 1, slotTokenNumber: 1 });
+      .sort({ slotNumber: 1, slotTokenNumber: 1 }))
+      .map((a) => ({ ...a.toObject(), slotNumber: slotLabel(a.slotNumber) }));
 
     // build per-slot summary
     const slotQueues = queue?.slotQueues || [];
