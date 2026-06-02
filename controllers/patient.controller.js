@@ -1448,6 +1448,8 @@ export const getAllClinics = async (req, res) => {
       clinicId: { $in: clinicIds },
       role: "doctor",
       status: "approved",
+      activeStatus: "active",
+      deletionRequested: { $ne: true },
     }).select("name profilePhoto services experience doctorAvailable activeStatus clinic clinicId qualifications");
 
     const doctorsByClinic = {};
@@ -1457,7 +1459,9 @@ export const getAllClinics = async (req, res) => {
       doctorsByClinic[key].push(d);
     }
 
-    const result = clinics.map((c) => {
+    const result = clinics
+      .filter((c) => doctorsByClinic[c._id.toString()]?.length > 0)
+      .map((c) => {
       const clinicDoctors = doctorsByClinic[c._id.toString()] || [];
       const firstDoc = clinicDoctors[0];
       return {

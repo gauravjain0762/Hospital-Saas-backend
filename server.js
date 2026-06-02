@@ -15,6 +15,7 @@ import Patient from "./models/patient.model.js";
 import Appointment from "./models/appointment.model.js";
 import Review from "./models/review.model.js";
 import analyticsRoutes from "./routes/Analytics.routes.js";
+import locationRoutes from "./routes/location.routes.js";
 import { checkAppVersion, getLegalContent } from "./controllers/adminController.js";
 
 
@@ -42,6 +43,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/patient", patientRoutes);
 app.use("/api/doctor", doctorRoutes);
 app.use("/api/admin/analytics", analyticsRoutes);
+app.use("/api", locationRoutes);
 
 // public — no auth needed, called by mobile apps on launch
 app.get("/api/app-version/:appType/:platform", checkAppVersion);
