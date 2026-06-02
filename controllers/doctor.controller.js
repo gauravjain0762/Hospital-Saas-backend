@@ -313,25 +313,47 @@ export const getDoctorSlots = async (req, res) => {
       return res.status(404).json({ success: false, message: "Doctor not found" });
     }
 
+    const IST_OFFSET = 330 * 60 * 1000;
+    const istNow = new Date(Date.now() + IST_OFFSET);
+    const currentMinutes = istNow.getUTCHours() * 60 + istNow.getUTCMinutes();
+
+    const parseTime = (str) => {
+      const s = str.trim();
+      const isPM = /pm/i.test(s);
+      const isAM = /am/i.test(s);
+      const [h, m] = s.replace(/[a-zA-Z\s]/g, "").split(":").map(Number);
+      let hour = h;
+      if (isPM && hour !== 12) hour += 12;
+      if (isAM && hour === 12) hour = 0;
+      return hour * 60 + (m || 0);
+    };
+
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const today = new Date();
     const next7Days = [];
 
     for (let i = 0; i < 7; i++) {
-      const current = new Date();
-      current.setDate(today.getDate() + i);
-      const dayName = dayNames[current.getDay()];
+      const current = new Date(istNow);
+      current.setUTCDate(istNow.getUTCDate() + i);
+      const dayName = dayNames[current.getUTCDay()];
 
       const doctorDay = doctor.availability.find(
         (item) => item.day === dayName && item.isActive
       );
 
       if (doctorDay) {
-        next7Days.push({
-          date: current.toISOString().split("T")[0],
-          day: dayName,
-          availableSlots: doctorDay.slots.map((slot) => `${slot.startTime} - ${slot.endTime}`),
-        });
+        let slots = doctorDay.slots;
+
+        if (i === 0) {
+          slots = slots.filter((slot) => parseTime(slot.endTime) > currentMinutes);
+        }
+
+        if (slots.length > 0) {
+          next7Days.push({
+            date: current.toISOString().split("T")[0],
+            day: dayName,
+            availableSlots: slots.map((slot) => `${slot.startTime} - ${slot.endTime}`),
+          });
+        }
       }
     }
 
@@ -1273,8 +1295,8 @@ export const getTokenPlan = async (req, res) => {
 
     if (hasPlan) {
       if (plan.planType === "pay_per_token") {
-        tokensAvailable = plan.pricePerToken ? Math.floor(balance / plan.pricePerToken) : 0;
-        isActive = balance >= (plan.pricePerToken ?? 0);
+        tokensAvailable = balance;
+        isActive = balance >= 1;
       } else if (plan.planType === "monthly_unlimited") {
         isExpired = plan.validUntil ? plan.validUntil < now : false;
         isActive = !isExpired;
@@ -1355,7 +1377,7 @@ export const getWallet = async (req, res) => {
       success: true,
       walletBalance: balance,
       pricePerToken: ppt ?? null,
-      tokensAvailable: ppt ? Math.floor(balance / ppt) : null,
+      tokensAvailable: balance,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -1366,10 +1388,10 @@ export const getWallet = async (req, res) => {
 export const rechargeWallet = async (req, res) => {
   try {
     const doctorId = req.user._id;
-    const { amount } = req.body || {};
+    const { tokens } = req.body || {};
 
-    if (!amount || Number(amount) <= 0) {
-      return res.status(400).json({ success: false, message: "amount must be greater than 0" });
+    if (!tokens || Number(tokens) <= 0 || !Number.isInteger(Number(tokens))) {
+      return res.status(400).json({ success: false, message: "tokens must be a positive integer" });
     }
 
     const before = await User.findOne({ _id: doctorId, "tokenPlan.planType": "pay_per_token" }).select("wallet");
@@ -1381,7 +1403,7 @@ export const rechargeWallet = async (req, res) => {
 
     const doctor = await User.findOneAndUpdate(
       { _id: doctorId, "tokenPlan.planType": "pay_per_token" },
-      { $inc: { "wallet.balance": Number(amount) } },
+      { $inc: { "wallet.balance": Number(tokens) } },
       { new: true, select: "wallet tokenPlan" }
     );
 
@@ -1391,24 +1413,24 @@ export const rechargeWallet = async (req, res) => {
     await WalletTransaction.create({
       doctorId,
       type: "recharge",
-      amount: Number(amount),
+      amount: Number(tokens),
       balanceBefore,
       balanceAfter: balance,
-      description: `Wallet recharged with ₹${amount}`,
+      description: `${tokens} tokens added to wallet`,
     });
 
     const io = req.app.get("io");
     io.to(`doctor_${doctorId}`).emit("walletUpdated", {
       walletBalance: balance,
       pricePerToken: ppt ?? null,
-      tokensAvailable: ppt ? Math.floor(balance / ppt) : null,
+      tokensAvailable: balance,
     });
 
     res.status(200).json({
       success: true,
-      message: `₹${amount} added to your wallet`,
+      message: `${tokens} tokens added to your wallet`,
       walletBalance: balance,
-      tokensAvailable: ppt ? Math.floor(balance / ppt) : null,
+      tokensAvailable: balance,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -1473,7 +1495,7 @@ export const buyPlan = async (req, res) => {
       grantedAt: now,
     };
 
-    // For pay_per_token, add initial recharge to wallet
+    // For pay_per_token, add initial token count to wallet
     if (plan.planType === "pay_per_token" && initialAmount && Number(initialAmount) > 0) {
       doctor.wallet = { balance: (doctor.wallet?.balance ?? 0) + Number(initialAmount) };
     }
@@ -1487,7 +1509,7 @@ export const buyPlan = async (req, res) => {
     io.to(`doctor_${doctorId}`).emit("walletUpdated", {
       walletBalance: balance,
       pricePerToken: ppt ?? null,
-      tokensAvailable: ppt ? Math.floor(balance / ppt) : null,
+      tokensAvailable: balance,
       planType: plan.planType,
       isUnlimited,
       validUntil: doctor.tokenPlan.validUntil,
@@ -1506,7 +1528,7 @@ export const buyPlan = async (req, res) => {
         validUntil: doctor.tokenPlan.validUntil,
         ...(plan.planType === "pay_per_token" && {
           walletBalance: balance,
-          tokensAvailable: Math.floor(balance / plan.pricePerToken),
+          tokensAvailable: balance,
         }),
       },
     });

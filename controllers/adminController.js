@@ -889,9 +889,9 @@ export const adminAddWalletBalance = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `₹${amount} added to Dr. ${doctor.name}'s wallet`,
+      message: `${amount} tokens added to Dr. ${doctor.name}'s wallet`,
       walletBalance: balance,
-      tokensAvailable: ppt ? Math.floor(balance / ppt) : null,
+      tokensAvailable: balance,
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -949,7 +949,7 @@ export const getAllAssignedPlans = async (req, res) => {
           isActive: plan.planType === "pay_per_token" ? balance > 0 : !isExpired,
         },
         walletBalance: balance,
-        tokensAvailable: plan.pricePerToken ? Math.floor(balance / plan.pricePerToken) : null,
+        tokensAvailable: plan.planType === "pay_per_token" ? balance : null,
       };
     });
 

@@ -7,16 +7,14 @@ export const refundToken = async (doctorId) => {
   const planType = doctor.tokenPlan?.planType;
 
   if (planType === "pay_per_token") {
-    const ppt = doctor.tokenPlan.pricePerToken;
-    if (!ppt) return;
     const updated = await User.findByIdAndUpdate(
       doctorId,
-      { $inc: { "wallet.balance": ppt, "tokenPlan.usedTokens": -1 } },
+      { $inc: { "wallet.balance": 1, "tokenPlan.usedTokens": -1 } },
       { new: true, select: "wallet tokenPlan" }
     );
     return {
       walletBalance: updated.wallet.balance,
-      tokensAvailable: Math.floor(updated.wallet.balance / ppt),
+      tokensAvailable: updated.wallet.balance,
     };
   }
 
@@ -53,23 +51,23 @@ export const checkAndDeductToken = async (doctorId) => {
       {
         _id: doctorId,
         "tokenPlan.planType": "pay_per_token",
-        "wallet.balance": { $gte: ppt },
+        "wallet.balance": { $gte: 1 },
       },
-      { $inc: { "wallet.balance": -ppt, "tokenPlan.usedTokens": 1 } },
+      { $inc: { "wallet.balance": -1, "tokenPlan.usedTokens": 1 } },
       { new: true, select: "wallet tokenPlan" }
     );
     if (walletPay) {
       return {
         allowed: true,
         walletBalance: walletPay.wallet.balance,
-        tokensAvailable: Math.floor(walletPay.wallet.balance / ppt),
+        tokensAvailable: walletPay.wallet.balance,
       };
     }
     // plan exists but balance was insufficient
     const balance = (await User.findById(doctorId).select("wallet")).wallet?.balance ?? 0;
     return {
       allowed: false,
-      reason: `Insufficient wallet balance. Current balance: ₹${balance}. Please recharge your wallet.`,
+      reason: `Insufficient token balance. You have ${balance} tokens remaining. Please recharge your tokens.`,
     };
   }
 
