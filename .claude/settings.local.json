@@ -8,7 +8,11 @@
       "WebFetch(domain:hospital-saas-backend.onrender.com)",
       "Bash(git restore *)",
       "Bash(git checkout *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(Get-ChildItem -Path \"f:\\\\company\\\\New folder\\\\hospital-saas\\\\Hospital-Saas-backend\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(npm run *)",
+      "Bash(node scripts/findMissingCities.js)"
     ]
   },
   "enableAllProjectMcpServers": true,
