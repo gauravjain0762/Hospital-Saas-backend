@@ -904,6 +904,82 @@ export const getMyReports = async (req, res) => {
   }
 };
 
+// GET /api/doctor/check-followup?mobile=<phone>
+export const checkFollowup = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+    const { mobile } = req.query;
+
+    if (!mobile) {
+      return res.status(400).json({ success: false, message: "mobile is required" });
+    }
+
+    const doctor = await User.findById(doctorId).select("clinic name");
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: "Doctor not found" });
+    }
+
+    const freeFollowupDays = doctor.clinic?.freeFollowupDays || 0;
+    if (freeFollowupDays === 0) {
+      return res.json({
+        success: true,
+        isFreeFollowup: false,
+        reason: "This doctor has no free follow-up policy",
+        consultationFee: doctor.clinic?.consultationFee ?? 0,
+      });
+    }
+
+    const patient = await Patient.findOne({ mobile });
+    if (!patient) {
+      return res.json({
+        success: true,
+        isFreeFollowup: false,
+        reason: "No previous visit found for this mobile number",
+        consultationFee: doctor.clinic?.consultationFee ?? 0,
+      });
+    }
+
+    const lastCompleted = await Appointment.findOne({
+      doctorId,
+      patientId: patient._id,
+      status: "completed",
+    }).sort({ completedAt: -1 });
+
+    if (!lastCompleted?.completedAt) {
+      return res.json({
+        success: true,
+        isFreeFollowup: false,
+        reason: "No completed appointment found with this doctor",
+        consultationFee: doctor.clinic?.consultationFee ?? 0,
+      });
+    }
+
+    const daysSinceLast =
+      (Date.now() - new Date(lastCompleted.completedAt)) / (1000 * 60 * 60 * 24);
+    const isFreeFollowup = daysSinceLast <= freeFollowupDays;
+    const daysRemaining = isFreeFollowup
+      ? Math.ceil(freeFollowupDays - daysSinceLast)
+      : 0;
+
+    return res.json({
+      success: true,
+      isFreeFollowup,
+      patientName: patient.fullName || lastCompleted.fullName || "",
+      mobile: patient.mobile,
+      lastVisitDate: lastCompleted.completedAt,
+      daysSinceLastVisit: Math.floor(daysSinceLast),
+      freeFollowupDays,
+      daysRemaining,
+      consultationFee: isFreeFollowup ? 0 : (doctor.clinic?.consultationFee ?? 0),
+      ...(!isFreeFollowup && {
+        reason: `Last visit was ${Math.floor(daysSinceLast)} days ago — free follow-up window (${freeFollowupDays} days) has expired`,
+      }),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // POST /api/doctor/create-appointment
 export const createWalkInAppointment = async (req, res) => {
   try {

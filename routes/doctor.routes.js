@@ -41,6 +41,7 @@ import { getTodayQueue,
     removeDoctorFromClinic,
     getAppointmentStats,
     cancelAppointment,
+    checkFollowup,
  } from "../controllers/doctor.controller.js";
 
 router.get("/profile", protect, getDoctorProfile);
@@ -58,6 +59,7 @@ router.post("/employees/verify", protect, verifyEmployeeOtp);
 router.delete("/employees/:phone", protect, removeEmployee);
 router.get("/completed-appointments", protect, getCompletedAppointments);
 router.get("/export-report", exportReport);
+router.get("/check-followup", protect, checkFollowup);
 router.post("/create-appointment", protect, createWalkInAppointment);
 router.get("/settings", protect, getDoctorSettings);
 router.get("/step3", protect, getStep3);

@@ -61,6 +61,7 @@ if (existingUser.status === "pending" && !hasRejections && existingUser.registra
                otpExpiry: new Date(Date.now() + 5 * 60 * 1000),
             },
           }
+          
         );
 
         console.log("Doctor Login OTP:", otp);
