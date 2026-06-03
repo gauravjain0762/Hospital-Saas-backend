@@ -72,10 +72,12 @@ export const getTodayQueue = async (req, res) => {
     // if filtering by slot, also return that slot's token counters
     let currentToken = 0;
     let lastIssuedToken = 0;
+    let slotNumber = null;
     if (slot) {
       const sq = slotQueues.find((s) => s.slot === slot);
       currentToken = sq?.currentToken ?? 0;
       lastIssuedToken = sq?.lastIssuedToken ?? 0;
+      slotNumber = sq ? slotLabel(sq.slotNumber) : null;
     }
 
     res.status(200).json({
@@ -84,7 +86,7 @@ export const getTodayQueue = async (req, res) => {
       status: resolvedStatus,
       slotQueues: slotSummary,
       // slot-specific counters when slot filter is provided
-      ...(slot && { currentToken, lastIssuedToken }),
+      ...(slot && { slotNumber, currentToken, lastIssuedToken }),
       count: appointments.length,
       appointments,
     });
