@@ -904,14 +904,23 @@ export const getMyReports = async (req, res) => {
   }
 };
 
-// GET /api/doctor/check-followup?mobile=<phone>
+// GET /api/doctor/check-followup?mobile=<phone>&date=YYYY-MM-DD
 export const checkFollowup = async (req, res) => {
   try {
     const doctorId = req.user._id;
-    const { mobile } = req.query;
+    const { mobile, date } = req.query;
 
     if (!mobile) {
       return res.status(400).json({ success: false, message: "mobile is required" });
+    }
+
+    if (!date) {
+      return res.status(400).json({ success: false, message: "date is required (YYYY-MM-DD)" });
+    }
+
+    const appointmentDate = new Date(date);
+    if (isNaN(appointmentDate.getTime())) {
+      return res.status(400).json({ success: false, message: "Invalid date format. Use YYYY-MM-DD" });
     }
 
     const doctor = await User.findById(doctorId).select("clinic name");
@@ -955,8 +964,8 @@ export const checkFollowup = async (req, res) => {
     }
 
     const daysSinceLast =
-      (Date.now() - new Date(lastCompleted.completedAt)) / (1000 * 60 * 60 * 24);
-    const isFreeFollowup = daysSinceLast <= freeFollowupDays;
+      (appointmentDate.getTime() - new Date(lastCompleted.completedAt).getTime()) / (1000 * 60 * 60 * 24);
+    const isFreeFollowup = daysSinceLast >= 0 && daysSinceLast <= freeFollowupDays;
     const daysRemaining = isFreeFollowup
       ? Math.ceil(freeFollowupDays - daysSinceLast)
       : 0;
