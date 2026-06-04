@@ -10,6 +10,7 @@ const clinicSchema = new mongoose.Schema(
     country:    { type: String, default: "" },
     phone:      { type: String, default: "" },
     photos:     [String],
+    isActive:   { type: Boolean, default: true },
   },
   { timestamps: true }
 );

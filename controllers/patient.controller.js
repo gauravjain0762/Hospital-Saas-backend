@@ -1316,21 +1316,33 @@ export const submitDoctorReview = async (req, res) => {
 export const getDoctorReviews = async (req, res) => {
   try {
     const doctorId = req.params.id;
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(50, parseInt(req.query.limit) || 10);
+    const skip  = (page - 1) * limit;
 
     const doctor = await User.findOne({ _id: doctorId, role: "doctor", status: "approved" });
     if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found" });
 
-    const reviews = await Review.find({ doctorId }).sort({ createdAt: -1 });
+    const [totalRatings, allRatings, reviews] = await Promise.all([
+      Review.countDocuments({ doctorId }),
+      Review.find({ doctorId }).select("rating"),
+      Review.find({ doctorId })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+    ]);
 
-    const totalRatings = reviews.length;
     const averageRating = totalRatings
-      ? parseFloat((reviews.reduce((sum, r) => sum + r.rating, 0) / totalRatings).toFixed(1))
+      ? parseFloat((allRatings.reduce((sum, r) => sum + r.rating, 0) / totalRatings).toFixed(1))
       : 0;
 
     res.status(200).json({
       success: true,
       averageRating,
       totalRatings,
+      page,
+      totalPages: Math.ceil(totalRatings / limit),
+      hasMore: page < Math.ceil(totalRatings / limit),
       reviews: reviews.map((r) => ({
         id: r._id,
         patientName: r.patientName,
@@ -1436,7 +1448,7 @@ export const getAllClinics = async (req, res) => {
   try {
     const { city, state } = req.query;
 
-    const clinicFilter = {};
+    const clinicFilter = { isActive: true };
     if (city) clinicFilter.city = { $regex: city, $options: "i" };
     if (state) clinicFilter.state = { $regex: state, $options: "i" };
 

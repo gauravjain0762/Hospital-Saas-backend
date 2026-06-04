@@ -9,6 +9,7 @@ import Plan from "../models/plan.model.js";
 import { sendApprovalEmail, sendRejectionEmail } from "../utils/sendEmail.js";
 import { formatLegalContent } from "../utils/formatLegalContent.js";
 import DeletedDoctorLog from "../models/deletedDoctorLog.model.js";
+import Clinic from "../models/clinic.model.js";
 
 //get pending users
 
@@ -861,6 +862,21 @@ export const assignPlanToDoctor = async (req, res) => {
         walletBalance: doctor.wallet?.balance ?? 0,
       },
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// DELETE /api/admin/clinics/:id  — soft-delete a clinic (hides it from patient app)
+export const deleteClinic = async (req, res) => {
+  try {
+    const clinic = await Clinic.findByIdAndUpdate(
+      req.params.id,
+      { isActive: false },
+      { new: true }
+    );
+    if (!clinic) return res.status(404).json({ success: false, message: "Clinic not found" });
+    res.json({ success: true, message: "Clinic removed successfully" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

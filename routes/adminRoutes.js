@@ -28,6 +28,7 @@ import {
     getAllAssignedPlans,
     adminAddWalletBalance,
     getDashboardStats,
+    deleteClinic,
     getDeletedDoctors,
     getDeletionRequests,
     approveDeletion,
@@ -101,6 +102,9 @@ router.delete("/plans/:id", deletePlan);
 router.post("/doctors/:id/assign-plan", assignPlanToDoctor);
 router.get("/plans/assigned", getAllAssignedPlans);
 router.post("/doctors/:id/wallet/add", adminAddWalletBalance);
+
+// clinic management
+router.delete("/clinics/:id", deleteClinic);
 
 // deleted doctors log
 router.get("/deleted-doctors", getDeletedDoctors);
