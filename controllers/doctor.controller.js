@@ -258,9 +258,12 @@ export const markPaid = async (req, res) => {
       status: "waiting",
     }).populate("patientId");
 
+    // deduplicate by FCM token so the same patient never gets 2 notifications
+    const seenFcmTokens = new Set();
     for (const item of nextPatients) {
       const fcmToken = item.patientId?.fcmToken;
-      if (fcmToken && item.patientId?.notificationsEnabled !== false) {
+      if (fcmToken && item.patientId?.notificationsEnabled !== false && !seenFcmTokens.has(fcmToken)) {
+        seenFcmTokens.add(fcmToken);
         const title = "Appointment Reminder";
         const body = `Current token is ${appointment.slotTokenNumber}. Your token is ${item.slotTokenNumber}. Please reach clinic soon.`;
         try {
