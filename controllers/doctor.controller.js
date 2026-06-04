@@ -154,30 +154,6 @@ export const nextToken = async (req, res) => {
     };
     io.to(room).emit("tokenUpdated", payload);
 
-    // notify patients at currentToken+1 and currentToken+2
-    const notifyTokens = [slotQueue.currentToken + 1, slotQueue.currentToken + 2];
-    const targetAppointments = await Appointment.find({
-      doctorId,
-      date: today,
-      slot,
-      slotTokenNumber: { $in: notifyTokens },
-      status: "waiting",
-    }).populate("patientId");
-
-    for (const item of targetAppointments) {
-      const fcmToken = item.patientId?.fcmToken;
-      if (fcmToken && item.patientId?.notificationsEnabled !== false) {
-        const title = "Appointment Reminder";
-        const body = `Current token is ${slotQueue.currentToken}. Your token is ${item.slotTokenNumber}. Please reach clinic soon.`;
-        try {
-          await admin.messaging().send({ token: fcmToken, notification: { title, body } });
-        } catch (err) {
-          console.log("FCM send failed:", err.message);
-        }
-        await Notification.create({ patientId: item.patientId._id, title, body, type: "queue_reminder", doctorId });
-      }
-    }
-
     res.status(200).json({
       success: true,
       message: "Moved to next token",
@@ -231,28 +207,6 @@ export const markDone = async (req, res) => {
         lastIssuedToken: slotQueue?.lastIssuedToken ?? 0,
       });
 
-      // notify patients at currentToken+1 and currentToken+2
-      const notifyTokens = [appointment.slotTokenNumber + 1, appointment.slotTokenNumber + 2];
-      const targetAppointments = await Appointment.find({
-        doctorId,
-        date: appointment.date,
-        slot: appointment.slot,
-        slotTokenNumber: { $in: notifyTokens },
-        status: "waiting",
-      }).populate("patientId");
-
-      for (const item of targetAppointments) {
-        if (item.patientId?.fcmToken && item.patientId?.notificationsEnabled !== false) {
-          const title = "Appointment Reminder";
-          const body = `Current token is ${appointment.slotTokenNumber}. Your token is ${item.slotTokenNumber}. Please reach clinic soon.`;
-          try {
-            await admin.messaging().send({ token: item.patientId.fcmToken, notification: { title, body } });
-          } catch (err) {
-            console.log(`[FCM] Send failed:`, err.message);
-          }
-          await Notification.create({ patientId: item.patientId._id, title, body, type: "queue_reminder", doctorId });
-        }
-      }
     }
 
     res.status(200).json({
@@ -292,6 +246,30 @@ export const markPaid = async (req, res) => {
       const payload = { appointmentId: appointment._id, paymentStatus: "paid" };
       io.to(`patient_${appointment.patientId}`).emit("appointmentPaid", payload);
       io.to(`doctor_${doctorId}`).emit("appointmentPaid", payload);
+    }
+
+    // notify next 2 patients in the queue that their turn is approaching
+    const notifyTokens = [appointment.slotTokenNumber + 1, appointment.slotTokenNumber + 2];
+    const nextPatients = await Appointment.find({
+      doctorId,
+      date: appointment.date,
+      slot: appointment.slot,
+      slotTokenNumber: { $in: notifyTokens },
+      status: "waiting",
+    }).populate("patientId");
+
+    for (const item of nextPatients) {
+      const fcmToken = item.patientId?.fcmToken;
+      if (fcmToken && item.patientId?.notificationsEnabled !== false) {
+        const title = "Appointment Reminder";
+        const body = `Current token is ${appointment.slotTokenNumber}. Your token is ${item.slotTokenNumber}. Please reach clinic soon.`;
+        try {
+          await admin.messaging().send({ token: fcmToken, notification: { title, body } });
+        } catch (err) {
+          console.log("FCM send failed:", err.message);
+        }
+        await Notification.create({ patientId: item.patientId._id, title, body, type: "queue_reminder", doctorId });
+      }
     }
 
     res.status(200).json({

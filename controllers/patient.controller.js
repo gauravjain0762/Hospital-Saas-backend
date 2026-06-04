@@ -999,7 +999,7 @@ export const getAppointmentDetails = async (req, res) => {
 
         estimatedTime,
         reminderMessage:
-          "Please arrive 5 minutes before your appointment time",
+          "Please arrive 10 minutes before your appointment time",
       },
     });
 
@@ -1401,7 +1401,7 @@ export const getAppointmentStats = async (req, res) => {
     }
 
     const [totalBooked, completedCount, upcomingCount, cancelledCount] = await Promise.all([
-      Appointment.countDocuments(baseFilter),
+      Appointment.countDocuments({ ...baseFilter, status: { $ne: "cancelled" } }),
       Appointment.countDocuments({ ...baseFilter, status: "completed" }),
       Appointment.countDocuments({ ...baseFilter, status: { $in: ["waiting", "in_progress"] } }),
       Appointment.countDocuments({ ...baseFilter, status: "cancelled" }),
