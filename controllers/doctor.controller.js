@@ -39,7 +39,7 @@ const calcEstimatedTime = (slot, slotTokenNumber) => {
 export const getTodayQueue = async (req, res) => {
   try {
     const doctorId = req.user._id;
-    const today = req.query.date || new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const today = req.query.date || new Date().toISOString().split("T")[0];
 
     const queue = await Queue.findOne({ doctorId, date: today });
 
@@ -388,7 +388,7 @@ export const getDoctorProfile = async (req, res) => {
 export const getDoctorDashboard = async (req, res) => {
   try {
     const doctorId = req.user._id;
-    const today = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const today = new Date().toISOString().split("T")[0];
 
     const appointments = await Appointment.find({
       doctorId,
@@ -1292,7 +1292,7 @@ export const getStep3 = async (req, res) => {
 export const getAppointmentStats = async (req, res) => {
   try {
     const doctorId = req.user._id;
-    const todayStr = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const todayStr = new Date().toISOString().split("T")[0];
 
     const [totalBooked, completed, upcoming] = await Promise.all([
       Appointment.countDocuments({ doctorId }),
