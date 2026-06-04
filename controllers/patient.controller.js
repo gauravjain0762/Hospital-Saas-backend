@@ -1448,7 +1448,7 @@ export const getAllClinics = async (req, res) => {
   try {
     const { city, state } = req.query;
 
-    const clinicFilter = { isActive: true };
+    const clinicFilter = { isActive: { $ne: false } };
     if (city) clinicFilter.city = { $regex: city, $options: "i" };
     if (state) clinicFilter.state = { $regex: state, $options: "i" };
 
