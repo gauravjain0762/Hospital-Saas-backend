@@ -182,16 +182,24 @@ cron.schedule("1 0 * * *", async () => {
   }
 }, { timezone: "Asia/Kolkata" });
 
-// reset doctorAvailable at 11:59 PM every night — never touches activeStatus
+// reset doctorAvailable + cancel no_show appointments at 11:59 PM every night
 cron.schedule("59 23 * * *", async () => {
   try {
-    const result = await User.updateMany(
-      { doctorAvailable: true },
-      { doctorAvailable: false }
-    );
-    console.log(`[CRON] 11:59 PM IST — reset ${result.modifiedCount} doctor(s) duty status`);
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const today = new Date(Date.now() + istOffset).toISOString().split("T")[0];
+
+    const [dutyResult, noShowResult] = await Promise.all([
+      User.updateMany({ doctorAvailable: true }, { doctorAvailable: false }),
+      Appointment.updateMany(
+        { status: "no_show", date: { $lte: today } },
+        { status: "cancelled" }
+      ),
+    ]);
+
+    console.log(`[CRON] 11:59 PM IST — reset ${dutyResult.modifiedCount} doctor(s) duty status`);
+    console.log(`[CRON] 11:59 PM IST — cancelled ${noShowResult.modifiedCount} no_show appointment(s)`);
   } catch (err) {
-    console.error("[CRON] Failed to reset duty status:", err.message);
+    console.error("[CRON] Failed at 11:59 PM job:", err.message);
   }
 }, { timezone: "Asia/Kolkata" });
 
