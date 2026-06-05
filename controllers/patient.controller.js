@@ -628,14 +628,15 @@ export const bookAppointment = async (req, res) => {
       return hour * 60 + (m || 0);
     };
 
-    const [slotStartPart] = slot.split(" - ").map((s) => s.trim());
+    const [slotStartPart, slotEndPart] = slot.split(" - ").map((s) => s.trim());
     const slotStartMins = parseSlotTime(slotStartPart);
+    const slotEndMins = parseSlotTime(slotEndPart);
 
     const nowISTMins = Math.floor((Date.now() + 5.5 * 60 * 60 * 1000) / 60000) % (24 * 60);
     const effectiveBase = Math.max(slotStartMins, nowISTMins);
     const currentTokenAtBooking = slotQueue.currentToken || 0;
     const waitMinsAtBooking = Math.max(0, (slotTokenNumber - currentTokenAtBooking - 1) * 5);
-    const totalMins = effectiveBase + waitMinsAtBooking;
+    const totalMins = Math.min(effectiveBase + waitMinsAtBooking, slotEndMins);
     const estHour = Math.floor(totalMins / 60) % 24;
     const estMin = totalMins % 60;
     const period = estHour >= 12 ? "PM" : "AM";
@@ -732,13 +733,14 @@ export const getMyAppointments = async (req, res) => {
 
       let estimatedTime = null;
       if (["waiting", "in_progress"].includes(item.status) && item.slot) {
-        const [startPart] = item.slot.split(" - ").map((s) => s.trim());
+        const [startPart, endPart] = item.slot.split(" - ").map((s) => s.trim());
         const slotStart = parseSlotTime(startPart);
+        const slotEnd = parseSlotTime(endPart);
         const slotPos = item.slotTokenNumber ?? item.tokenNumber;
         const nowISTMins = Math.floor((Date.now() + 5.5 * 60 * 60 * 1000) / 60000) % (24 * 60);
         const effectiveBase = Math.max(slotStart, nowISTMins);
         const waitMins = Math.max(0, (slotPos - currentToken - 1) * 5);
-        const totalMin = effectiveBase + waitMins;
+        const totalMin = Math.min(effectiveBase + waitMins, slotEnd);
         estimatedTime = formatTime(totalMin);
       }
 
@@ -960,8 +962,9 @@ export const getAppointmentDetails = async (req, res) => {
         return hour * 60 + (m || 0);
       };
 
-      const [startPart] = appointment.slot.split(" - ").map((s) => s.trim());
+      const [startPart, endPart] = appointment.slot.split(" - ").map((s) => s.trim());
       const slotStartMins = parseSlotTimeFmt(startPart);
+      const slotEndMins = parseSlotTimeFmt(endPart);
       const slotPos = appointment.slotTokenNumber ?? appointment.tokenNumber;
 
       const queueDoc = await Queue.findOne({ doctorId: appointment.doctorId, date: appointment.date });
@@ -971,7 +974,7 @@ export const getAppointmentDetails = async (req, res) => {
       const nowISTMins = Math.floor((Date.now() + 5.5 * 60 * 60 * 1000) / 60000) % (24 * 60);
       const effectiveBase = Math.max(slotStartMins, nowISTMins);
       const waitMins = Math.max(0, (slotPos - currentToken - 1) * 5);
-      const totalMin = effectiveBase + waitMins;
+      const totalMin = Math.min(effectiveBase + waitMins, slotEndMins);
 
       const calcTime = (min) => {
         const h = Math.floor(min / 60) % 24;
@@ -1148,14 +1151,15 @@ export const getAppointmentPreview = async (req, res) => {
       return hour * 60 + (m || 0);
     };
 
-    const [startPart] = slot.split(" - ").map((s) => s.trim());
+    const [startPart, endPart] = slot.split(" - ").map((s) => s.trim());
     const slotStart = parseSlotTime(startPart);
+    const slotEnd = parseSlotTime(endPart);
 
     const waitMinutes = Math.max(0, (yourToken - currentToken - 1) * 5);
 
     const nowISTMins = Math.floor((Date.now() + 5.5 * 60 * 60 * 1000) / 60000) % (24 * 60);
     const effectiveBase = Math.max(slotStart, nowISTMins);
-    const totalMins = effectiveBase + waitMinutes;
+    const totalMins = Math.min(effectiveBase + waitMinutes, slotEnd);
     const estHour = Math.floor(totalMins / 60) % 24;
     const estMin = totalMins % 60;
     const period = estHour >= 12 ? "PM" : "AM";
