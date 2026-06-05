@@ -26,13 +26,15 @@ const parseSlotTime = (str) => {
   return hour * 60 + (m || 0);
 };
 
-const calcEstimatedTime = (slot, slotTokenNumber, currentToken = 0) => {
+const calcEstimatedTime = (slot, slotTokenNumber, currentToken = 0, date = null) => {
   const [startPart, endPart] = slot.split(" - ").map((s) => s.trim());
   const slotStart = parseSlotTime(startPart);
   const slotEnd = parseSlotTime(endPart);
-  const nowISTMins = Math.floor((Date.now() + 5.5 * 60 * 60 * 1000) / 60000) % (24 * 60);
-  const effectiveBase = Math.max(slotStart, nowISTMins);
+  const nowIST = Date.now() + 5.5 * 60 * 60 * 1000;
+  const todayIST = new Date(nowIST).toISOString().split("T")[0];
+  const nowISTMins = Math.floor(nowIST / 60000) % (24 * 60);
   const waitMins = Math.max(0, (slotTokenNumber - currentToken - 1) * 5);
+  const effectiveBase = date === todayIST ? Math.max(slotStart, nowISTMins) : slotStart;
   const totalMins = Math.min(effectiveBase + waitMins, slotEnd);
   const estHour = Math.floor(totalMins / 60) % 24;
   const estMin = totalMins % 60;
@@ -70,7 +72,7 @@ export const getTodayQueue = async (req, res) => {
       .map((a) => ({
         ...a.toObject(),
         slotNumber: slotLabel(a.slotNumber),
-        estimatedTime: calcEstimatedTime(a.slot, a.slotTokenNumber, currentTokenBySlot[a.slot] || 0),
+        estimatedTime: calcEstimatedTime(a.slot, a.slotTokenNumber, currentTokenBySlot[a.slot] || 0, a.date),
       }));
     const slotSummary = slotQueues.map((sq) => ({
       slot: sq.slot,
