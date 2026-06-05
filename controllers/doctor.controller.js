@@ -26,9 +26,14 @@ const parseSlotTime = (str) => {
   return hour * 60 + (m || 0);
 };
 
-const calcEstimatedTime = (slot, slotTokenNumber) => {
-  const [startPart] = slot.split(" - ").map((s) => s.trim());
-  const totalMins = parseSlotTime(startPart) + (slotTokenNumber - 1) * 5;
+const calcEstimatedTime = (slot, slotTokenNumber, currentToken = 0) => {
+  const [startPart, endPart] = slot.split(" - ").map((s) => s.trim());
+  const slotStart = parseSlotTime(startPart);
+  const slotEnd = parseSlotTime(endPart);
+  const nowISTMins = Math.floor((Date.now() + 5.5 * 60 * 60 * 1000) / 60000) % (24 * 60);
+  const effectiveBase = Math.max(slotStart, nowISTMins);
+  const waitMins = Math.max(0, (slotTokenNumber - currentToken - 1) * 5);
+  const totalMins = Math.min(effectiveBase + waitMins, slotEnd);
   const estHour = Math.floor(totalMins / 60) % 24;
   const estMin = totalMins % 60;
   const period = estHour >= 12 ? "PM" : "AM";
@@ -51,17 +56,22 @@ export const getTodayQueue = async (req, res) => {
     const appointmentQuery = { doctorId, date: today, status: resolvedStatus };
     if (slot) appointmentQuery.slot = slot;
 
+    // build per-slot summary
+    const slotQueues = queue?.slotQueues || [];
+
+    const currentTokenBySlot = {};
+    for (const sq of slotQueues) {
+      currentTokenBySlot[sq.slot] = sq.currentToken || 0;
+    }
+
     const appointments = (await Appointment.find(appointmentQuery)
       .populate("patientId", "fullName mobile profilePhoto")
       .sort({ slotNumber: 1, slotTokenNumber: 1 }))
       .map((a) => ({
         ...a.toObject(),
         slotNumber: slotLabel(a.slotNumber),
-        estimatedTime: calcEstimatedTime(a.slot, a.slotTokenNumber),
+        estimatedTime: calcEstimatedTime(a.slot, a.slotTokenNumber, currentTokenBySlot[a.slot] || 0),
       }));
-
-    // build per-slot summary
-    const slotQueues = queue?.slotQueues || [];
     const slotSummary = slotQueues.map((sq) => ({
       slot: sq.slot,
       slotNumber: slotLabel(sq.slotNumber),
