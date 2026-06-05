@@ -7,9 +7,30 @@ dotenv.config();
 
 // ─── Populate this array after running: npm run find:missing ────────────────
 const MISSING_CITIES = [
-  // paste the "MISSING FROM DB" output here, e.g.:
-  // "Kishangarh Bas",
-  // "Neem ka Thana",
+  "Banswara", "Barmer", "Bhilwara", "Bikaner", "Bundi", "Chittorgarh",
+  "Churu", "Dholpur", "Dungarpur", "Jhalawar", "Jhunjhunu", "Nagaur",
+  "Pali", "Sawai Madhopur", "Sikar", "Sri Ganganagar", "Beawar", "Makrana",
+  "Sujangarh", "Sardarshahar", "Gangapur City", "Lakheri", "Nimbahera",
+  "Begun", "Rawatbhata", "Deeg", "Dig", "Kaman", "Nadbai", "Weir",
+  "Rupbas", "Kumher", "Pahari", "Lachhmangarh", "Ramgarh", "Shrimadhopur",
+  "Pilani", "Chirawa", "Mandawa", "Bissau", "Baggar", "Balotra",
+  "Pachpadra", "Siwana", "Sheo", "Baytu", "Gudamalani", "Sanchore",
+  "Bhinmal", "Ahore", "Jaswantpura", "Raniwara", "Sagwara", "Aspur",
+  "Bichhiwara", "Simalwara", "Bagidora", "Garhi", "Kushalgarh",
+  "Sajjangarh", "Abu Road", "Reodar", "Pindwara", "Mount Abu", "Mandal",
+  "Jahazpur", "Gulabpura", "Gangapur", "Hindoli", "Indargarh", "Kapren",
+  "Talera", "Ramganj Mandi", "Jhalarapatan", "Khanpur", "Pirawa",
+  "Chhipabarod", "Kishanganj", "Atru", "Rajakhera", "Bari", "Baseri",
+  "Saramathura", "Nadoti", "Mandrail", "Sapotra", "Wazirpur", "Bonli",
+  "Khandar", "Newai", "Malpura", "Uniara", "Lalsot", "Bandikui", "Sikrai",
+  "Mahuwa", "Rajgarh", "Thanagazi", "Kishangarh Bas", "Mundawar", "Tijara",
+  "Bansur", "Kotkasim", "Bayana", "Bidasar", "Taranagar", "Sangaria",
+  "Pilibanga", "Bhadra", "Rawatsar", "Tibbi", "Suratgarh", "Raisinghnagar",
+  "Anupgarh", "Gharsana", "Ladnun", "Didwana", "Mundwa", "Merta City",
+  "Kuchaman City", "Parbatsar", "Jayal", "Nawa", "Marwar Junction", "Bali",
+  "Desuri", "Jaitaran", "Rohat", "Sumerpur", "Nathdwara", "Railmagra",
+  "Deogarh", "Bhim", "Khamnor", "Kapasan", "Bari Sadri", "Mavli",
+  "Vallabhnagar", "Salumbar", "Sarada", "Gogunda", "Girwa", "Kherwara",
 ];
 // ────────────────────────────────────────────────────────────────────────────
 

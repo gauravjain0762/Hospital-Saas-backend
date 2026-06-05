@@ -9,7 +9,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed:locations": "node scripts/seedCitiesStates.js",
     "find:missing": "node scripts/findMissingCities.js",
-    "add:missing": "node scripts/addMissingCities.js"
+    "add:missing": "node scripts/addMissingCities.js",
+    "normalize:cities": "node scripts/normalizeCities.js"
   },
   "keywords": [],
   "author": "",
