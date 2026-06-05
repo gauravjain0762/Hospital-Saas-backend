@@ -731,11 +731,14 @@ export const getMyAppointments = async (req, res) => {
       const currentToken = slotQ?.currentToken || 0;
 
       let estimatedTime = null;
-      if (["waiting", "in_progress", "completed"].includes(item.status) && item.slot) {
+      if (["waiting", "in_progress"].includes(item.status) && item.slot) {
         const [startPart] = item.slot.split(" - ").map((s) => s.trim());
         const slotStart = parseSlotTime(startPart);
         const slotPos = item.slotTokenNumber ?? item.tokenNumber;
-        const totalMin = slotStart + (slotPos - 1) * 5;
+        const nowISTMins = Math.floor((Date.now() + 5.5 * 60 * 60 * 1000) / 60000) % (24 * 60);
+        const effectiveBase = Math.max(slotStart, nowISTMins);
+        const waitMins = Math.max(0, (slotPos - currentToken - 1) * 5);
+        const totalMin = effectiveBase + waitMins;
         estimatedTime = formatTime(totalMin);
       }
 
