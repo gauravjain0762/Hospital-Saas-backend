@@ -1468,40 +1468,44 @@ export const getAllClinics = async (req, res) => {
   try {
     const { city, state } = req.query;
 
-    const clinicFilter = { isActive: { $ne: false } };
-    if (city) clinicFilter.city = { $regex: city, $options: "i" };
-    if (state) clinicFilter.state = { $regex: state, $options: "i" };
-
-    const clinics = await Clinic.find(clinicFilter).sort({ createdAt: -1 });
-
-    const clinicIds = clinics.map((c) => c._id);
-
-    const doctors = await User.find({
-      clinicId: { $in: clinicIds },
+    // Filter by User.clinic.city/state — Clinic documents have empty city/state fields
+    const doctorFilter = {
       role: "doctor",
       status: "approved",
       activeStatus: "active",
       deletionRequested: { $ne: true },
-    }).select("name profilePhoto services experience doctorAvailable activeStatus clinic clinicId qualifications");
+    };
+    if (city) doctorFilter["clinic.city"] = { $regex: city, $options: "i" };
+    if (state) doctorFilter["clinic.state"] = { $regex: state, $options: "i" };
+
+    const doctors = await User.find(doctorFilter).select(
+      "name profilePhoto services experience doctorAvailable activeStatus clinic clinicId qualifications"
+    );
+
+    const clinicIdSet = [...new Set(doctors.map((d) => d.clinicId?.toString()).filter(Boolean))];
+
+    const clinics = await Clinic.find({
+      _id: { $in: clinicIdSet },
+      isActive: { $ne: false },
+    }).sort({ createdAt: -1 });
 
     const doctorsByClinic = {};
     for (const d of doctors) {
-      const key = d.clinicId.toString();
+      const key = d.clinicId?.toString();
+      if (!key) continue;
       if (!doctorsByClinic[key]) doctorsByClinic[key] = [];
       doctorsByClinic[key].push(d);
     }
 
-    const result = clinics
-      .filter((c) => doctorsByClinic[c._id.toString()]?.length > 0)
-      .map((c) => {
+    const result = clinics.map((c) => {
       const clinicDoctors = doctorsByClinic[c._id.toString()] || [];
       const firstDoc = clinicDoctors[0];
       return {
         id: c._id,
         clinicName: c.clinicName,
         address: c.address,
-        city: c.city,
-        state: c.state,
+        city: c.city || firstDoc?.clinic?.city || "",
+        state: c.state || firstDoc?.clinic?.state || "",
         pincode: c.pincode,
         country: c.country,
         phone: c.phone,
