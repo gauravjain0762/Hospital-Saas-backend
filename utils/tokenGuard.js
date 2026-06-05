@@ -67,7 +67,7 @@ export const checkAndDeductToken = async (doctorId) => {
     const balance = (await User.findById(doctorId).select("wallet")).wallet?.balance ?? 0;
     return {
       allowed: false,
-      reason: `Insufficient token balance. You have ${balance} tokens remaining. Please recharge your tokens.`,
+      reason: `This Doctor is not Available.`,
     };
   }
 
