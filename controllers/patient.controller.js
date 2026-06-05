@@ -633,7 +633,9 @@ export const bookAppointment = async (req, res) => {
 
     const nowISTMins = Math.floor((Date.now() + 5.5 * 60 * 60 * 1000) / 60000) % (24 * 60);
     const effectiveBase = Math.max(slotStartMins, nowISTMins);
-    const totalMins = effectiveBase + (slotTokenNumber - 1) * 5;
+    const currentTokenAtBooking = slotQueue.currentToken || 0;
+    const waitMinsAtBooking = Math.max(0, (slotTokenNumber - currentTokenAtBooking - 1) * 5);
+    const totalMins = effectiveBase + waitMinsAtBooking;
     const estHour = Math.floor(totalMins / 60) % 24;
     const estMin = totalMins % 60;
     const period = estHour >= 12 ? "PM" : "AM";
@@ -943,7 +945,7 @@ export const getAppointmentDetails = async (req, res) => {
       "APT" + String(appointment._id).slice(-4).toUpperCase();
 
     let estimatedTime = null;
-    if (["waiting", "in_progress", "completed"].includes(appointment.status) && appointment.slot) {
+    if (["waiting", "in_progress"].includes(appointment.status) && appointment.slot) {
       const parseSlotTimeFmt = (str) => {
         const s = str.trim();
         const isPM = /pm/i.test(s);
@@ -958,7 +960,15 @@ export const getAppointmentDetails = async (req, res) => {
       const [startPart] = appointment.slot.split(" - ").map((s) => s.trim());
       const slotStartMins = parseSlotTimeFmt(startPart);
       const slotPos = appointment.slotTokenNumber ?? appointment.tokenNumber;
-      const totalMin = slotStartMins + (slotPos - 1) * 5;
+
+      const queueDoc = await Queue.findOne({ doctorId: appointment.doctorId, date: appointment.date });
+      const slotQ = queueDoc?.slotQueues?.find((s) => s.slot === appointment.slot);
+      const currentToken = slotQ?.currentToken || 0;
+
+      const nowISTMins = Math.floor((Date.now() + 5.5 * 60 * 60 * 1000) / 60000) % (24 * 60);
+      const effectiveBase = Math.max(slotStartMins, nowISTMins);
+      const waitMins = Math.max(0, (slotPos - currentToken - 1) * 5);
+      const totalMin = effectiveBase + waitMins;
 
       const calcTime = (min) => {
         const h = Math.floor(min / 60) % 24;
