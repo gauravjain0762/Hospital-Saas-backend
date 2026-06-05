@@ -1138,7 +1138,9 @@ export const getAppointmentPreview = async (req, res) => {
 
     const waitMinutes = Math.max(0, (yourToken - currentToken - 1) * 5);
 
-    const totalMins = slotStart + (yourToken - 1) * 5;
+    const nowISTMins = Math.floor((Date.now() + 5.5 * 60 * 60 * 1000) / 60000) % (24 * 60);
+    const effectiveBase = Math.max(slotStart, nowISTMins);
+    const totalMins = effectiveBase + waitMinutes;
     const estHour = Math.floor(totalMins / 60) % 24;
     const estMin = totalMins % 60;
     const period = estHour >= 12 ? "PM" : "AM";
