@@ -631,7 +631,9 @@ export const bookAppointment = async (req, res) => {
     const [slotStartPart] = slot.split(" - ").map((s) => s.trim());
     const slotStartMins = parseSlotTime(slotStartPart);
 
-    const totalMins = slotStartMins + (slotTokenNumber - 1) * 5;
+    const nowISTMins = Math.floor((Date.now() + 5.5 * 60 * 60 * 1000) / 60000) % (24 * 60);
+    const effectiveBase = Math.max(slotStartMins, nowISTMins);
+    const totalMins = effectiveBase + (slotTokenNumber - 1) * 5;
     const estHour = Math.floor(totalMins / 60) % 24;
     const estMin = totalMins % 60;
     const period = estHour >= 12 ? "PM" : "AM";
