@@ -90,7 +90,20 @@ if (existingUser.status === "pending" && !hasRejections && existingUser.registra
       return res.json({ success: true, message: "OTP sent successfully", mode: "employee" });
     }
 
-    const isNewDoctor = !(await User.exists({ phone }));
+    const { isSignIn } = req.body;
+
+    const partialUser = await User.findOne({ phone });
+    const isRegistered = partialUser && partialUser.name;
+
+    if (isSignIn && !isRegistered) {
+      return res.status(400).json({
+        success: false,
+        message: "No account found with this number. Please sign up first.",
+        isNewDoctor: true,
+      });
+    }
+
+    const isNewDoctor = !isRegistered;
 
     const fixedOtp = process.env.FIXED_OTP?.trim();
     const otp = fixedOtp || generateOtp();
