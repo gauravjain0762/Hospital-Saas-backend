@@ -1886,6 +1886,11 @@ export const cancelAppointment = async (req, res) => {
       slot: appointment.slot,
       tokenNumber: appointment.slotTokenNumber,
     });
+    io.to(`patient_${appointment.patientId}`).emit("appointmentCancelled", {
+      appointmentId: appointment._id,
+      date: appointment.date,
+      slot: appointment.slot,
+    });
 
     res.status(200).json({
       success: true,
