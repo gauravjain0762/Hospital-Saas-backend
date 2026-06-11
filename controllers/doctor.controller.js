@@ -218,6 +218,13 @@ export const markDone = async (req, res) => {
         currentToken: slotQueue?.currentToken ?? 0,
         lastIssuedToken: slotQueue?.lastIssuedToken ?? 0,
       });
+      io.to(room).emit("queueUpdated", {
+        action: "completed",
+        doctorId: doctorId.toString(),
+        date: appointment.date,
+        slot: appointment.slot,
+        tokenNumber: appointment.slotTokenNumber,
+      });
 
     }
 
