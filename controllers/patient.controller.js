@@ -616,6 +616,13 @@ export const bookAppointment = async (req, res) => {
       slotNumber: slotLabel(slotNumber),
       lastIssuedToken: slotQueue.lastIssuedToken,
     });
+    io.to(room).emit("queueUpdated", {
+      action: "booked",
+      doctorId: doctorId.toString(),
+      date,
+      slot,
+      tokenNumber: slotTokenNumber,
+    });
 
     const parseSlotTime = (str) => {
       const s = str.trim();
@@ -828,14 +835,21 @@ export const cancelAppointment = async (req, res) => {
     appointment.status = "cancelled";
     await appointment.save();
 
+    const io = req.app.get("io");
     const refund = await refundToken(appointment.doctorId);
     if (refund?.walletBalance !== undefined) {
-      const io = req.app.get("io");
       io.to(`doctor_${appointment.doctorId}`).emit("walletUpdated", {
         walletBalance: refund.walletBalance,
         tokensAvailable: refund.tokensAvailable,
       });
     }
+    io.to(`doctor_${appointment.doctorId}`).emit("queueUpdated", {
+      action: "cancelled",
+      doctorId: appointment.doctorId.toString(),
+      date: appointment.date,
+      slot: appointment.slot,
+      tokenNumber: appointment.slotTokenNumber,
+    });
 
     res.status(200).json({
       success: true,

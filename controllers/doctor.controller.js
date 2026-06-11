@@ -1859,14 +1859,21 @@ export const cancelAppointment = async (req, res) => {
     appointment.status = "cancelled";
     await appointment.save();
 
+    const io = req.app.get("io");
     const refund = await refundToken(doctorId);
     if (refund?.walletBalance !== undefined) {
-      const io = req.app.get("io");
       io.to(`doctor_${doctorId}`).emit("walletUpdated", {
         walletBalance: refund.walletBalance,
         tokensAvailable: refund.tokensAvailable,
       });
     }
+    io.to(`doctor_${doctorId}`).emit("queueUpdated", {
+      action: "cancelled",
+      doctorId: doctorId.toString(),
+      date: appointment.date,
+      slot: appointment.slot,
+      tokenNumber: appointment.slotTokenNumber,
+    });
 
     res.status(200).json({
       success: true,
