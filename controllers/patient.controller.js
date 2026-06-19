@@ -23,7 +23,7 @@ export const sendOtp = async (req, res) => {
         if (!/^[6-9]\d{9}$/.test(mobile)) {
             return res.status(400).json({
                 success: false,
-                message: "Enter valid 10digit mobile number",
+                message: "Enter valid 10 digit mobile number",
             });
         }
 
