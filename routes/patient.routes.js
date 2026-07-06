@@ -62,9 +62,9 @@ router.get("/doctors/:id", getDoctorById);
 
 router.get("/doctorsbyid/:id", getDoctorByIdFormatted);
 
-router.post("/book-appointment", patientAuth, bookAppointment);
+router.post("/book-appointment", bookAppointment);
 
-router.get("/appointment/:id", patientAuth, getAppointmentDetails);
+router.get("/appointment/:id", getAppointmentDetails);
 
 router.get("/my-appointments", patientAuth, getMyAppointments);
 

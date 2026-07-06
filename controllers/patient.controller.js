@@ -428,7 +428,7 @@ export const getDoctorByIdFormatted = async (req, res) => {
 
 export const bookAppointment = async (req, res) => {
   try {
-    const patientId = req.patient.id;
+    const patientId = req.patient?.id || null;
 
     const {
       doctorId,
@@ -505,13 +505,12 @@ export const bookAppointment = async (req, res) => {
       });
     }
 
-    // One booking per day
-    const existing = await Appointment.findOne({
-      doctorId,
-      patientId,
-      date,
-      status: { $ne: "cancelled" },
-    });
+    // One booking per day — use patientId for mobile, phone for web
+    const duplicateQuery = patientId
+      ? { doctorId, patientId, date, status: { $ne: "cancelled" } }
+      : { doctorId, phone, date, status: { $ne: "cancelled" } };
+
+    const existing = await Appointment.findOne(duplicateQuery);
 
     if (existing) {
       return res.status(400).json({
@@ -944,13 +943,14 @@ export const saveFcmToken = async (req, res) => {
 
 export const getAppointmentDetails = async (req, res) => {
   try {
-    const patientId = req.patient.id;
+    const patientId = req.patient?.id || null;
     const appointmentId = req.params.id;
 
-    const appointment = await Appointment.findOne({
-      _id: appointmentId,
-      patientId,
-    }).populate({
+    const query = patientId
+      ? { _id: appointmentId, patientId }
+      : { _id: appointmentId };
+
+    const appointment = await Appointment.findOne(query).populate({
       path: "doctorId",
       select: "name clinic profilePhoto maxPatientsPerSlot",
     });
