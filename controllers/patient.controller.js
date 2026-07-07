@@ -558,11 +558,12 @@ export const bookAppointment = async (req, res) => {
 
     const freeFollowupDays = doctor.clinic?.freeFollowupDays || 0;
     if (freeFollowupDays > 0) {
-      const lastCompleted = await Appointment.findOne({
-        doctorId,
-        patientId,
-        status: "completed",
-      }).sort({ completedAt: -1 });
+      // logged-in app patients are matched by patientId; web guests (no patientId) by phone
+      const followupQuery = patientId
+        ? { doctorId, patientId, status: "completed" }
+        : { doctorId, phone, status: "completed" };
+
+      const lastCompleted = await Appointment.findOne(followupQuery).sort({ completedAt: -1 });
 
       if (lastCompleted?.completedAt) {
         const daysSinceLast =
@@ -1799,6 +1800,59 @@ export const checkFreeFollowup = async (req, res) => {
     const lastCompleted = await Appointment.findOne({
       doctorId,
       patientId,
+      status: "completed",
+      completedAt: { $lte: referenceDate },
+    }).sort({ completedAt: -1 }).select("completedAt");
+
+    if (!lastCompleted?.completedAt) {
+      return res.status(200).json({ success: true, freeFollowup: false });
+    }
+
+    const daysSinceLast = (referenceDate - new Date(lastCompleted.completedAt)) / (1000 * 60 * 60 * 24);
+    const freeFollowup = daysSinceLast <= freeFollowupDays;
+
+    const expiresOn = new Date(new Date(lastCompleted.completedAt).getTime() + freeFollowupDays * 24 * 60 * 60 * 1000);
+
+    return res.status(200).json({
+      success: true,
+      freeFollowup,
+      lastVisitDate: lastCompleted.completedAt,
+      expiresOn,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/patient/doctors/:id/free-followup-guest?phone=...&date=...
+// public (no login) — used by the web booking form to decide payment step live
+export const checkFreeFollowupGuest = async (req, res) => {
+  try {
+    const doctorId = req.params.id;
+    const { phone } = req.query;
+
+    if (!phone) {
+      return res.status(400).json({ success: false, message: "phone is required" });
+    }
+
+    const doctor = await User.findOne({ _id: doctorId, role: "doctor", status: "approved" }).select("clinic.freeFollowupDays");
+    if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found" });
+
+    const freeFollowupDays = doctor.clinic?.freeFollowupDays || 0;
+
+    if (freeFollowupDays === 0) {
+      return res.status(200).json({ success: true, freeFollowup: false });
+    }
+
+    const referenceDate = req.query.date ? new Date(req.query.date) : new Date();
+    if (isNaN(referenceDate.getTime())) {
+      return res.status(400).json({ success: false, message: "Invalid date format. Use YYYY-MM-DD" });
+    }
+    if (req.query.date) referenceDate.setHours(23, 59, 59, 999);
+
+    const lastCompleted = await Appointment.findOne({
+      doctorId,
+      phone,
       status: "completed",
       completedAt: { $lte: referenceDate },
     }).sort({ completedAt: -1 }).select("completedAt");

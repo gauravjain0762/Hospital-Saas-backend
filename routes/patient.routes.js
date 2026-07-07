@@ -34,6 +34,7 @@ import {
     getVisitTimeEstimate,
     getMySessions,
     checkFreeFollowup,
+    checkFreeFollowupGuest,
     checkClinicGuard,
 } from "../controllers/patient.controller.js";
 
@@ -88,6 +89,7 @@ router.delete("/account", patientAuth, deletePatientAccount);
 router.post("/doctors/:id/review", patientAuth, submitDoctorReview);
 router.get("/doctors/:id/reviews", getDoctorReviews);
 router.get("/doctors/:id/free-followup", patientAuth, checkFreeFollowup);
+router.get("/doctors/:id/free-followup-guest", checkFreeFollowupGuest);
 
 router.get("/clinics", getAllClinics);
 router.get("/clinic/:clinicId", getClinicById);
