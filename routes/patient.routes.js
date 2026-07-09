@@ -40,6 +40,7 @@ import {
 
 import { getLegalContent } from "../controllers/adminController.js";
 import patientAuth from "../middleware/patientAuth.js";
+import patientAuthOptional from "../middleware/patientAuthOptional.js";
 import upload from "../utils/multer.js";
 
 // send otp
@@ -63,9 +64,9 @@ router.get("/doctors/:id", getDoctorById);
 
 router.get("/doctorsbyid/:id", getDoctorByIdFormatted);
 
-router.post("/book-appointment", bookAppointment);
+router.post("/book-appointment", patientAuthOptional, bookAppointment);
 
-router.get("/appointment/:id", getAppointmentDetails);
+router.get("/appointment/:id", patientAuthOptional, getAppointmentDetails);
 
 router.get("/my-appointments", patientAuth, getMyAppointments);
 
