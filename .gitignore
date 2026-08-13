@@ -2,8 +2,6 @@
 node_modules/
 
 # environment files
-.env
-.env.*
 !.env.example
 
 
@@ -37,7 +35,6 @@ build/
 .eslintcache
 
 # IDE/editor files
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -45,3 +42,4 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
+config.bat
